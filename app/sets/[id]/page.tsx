@@ -23,9 +23,11 @@ type StudySet = {
 	subject: string;
 	status: string;
 	cardCount?: number;
+	lastError?: string | null;
 };
 
 function getStatusClass(status: string) {
+	if (status === "error") return "pill pill-rose";
 	if (status === "completed") return "pill pill-green";
 	if (status === "processing") return "pill pill-amber";
 	return "pill pill-blue";
@@ -101,6 +103,7 @@ export default function StudySetPage({
 			const json = await res.json();
 
 			if (!res.ok) {
+					await loadSet();
 				alert(json.error || "Noe gikk galt");
 				return;
 			}
@@ -109,6 +112,7 @@ export default function StudySetPage({
 			alert(`Ferdig. Genererte ${json.cardCount} flashcards.`);
 		} catch (err) {
 			console.error(err);
+				await loadSet();
 			alert("Feil under generering");
 		} finally {
 			setProcessing(false);
@@ -153,6 +157,15 @@ export default function StudySetPage({
 						<span className="pill pill-neutral">Fag: {data.subject}</span>
 						<span className={getStatusClass(data.status)}>Status: {data.status}</span>
 					</div>
+
+						{data.lastError ? (
+							<div className="rounded-2xl border border-rose-400/25 bg-rose-500/10 p-4 text-rose-100">
+								<p className="text-sm font-semibold uppercase tracking-[0.18em] text-rose-200/90">
+									Siste feil
+								</p>
+								<p className="mt-2 text-sm leading-6 text-rose-100/90">{data.lastError}</p>
+							</div>
+						) : null}
 
 					<div className="stats-grid">
 						<div className="stat-card">
