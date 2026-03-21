@@ -28,7 +28,7 @@ type StudySet = {
 
 function getStatusClass(status: string) {
 	if (status === "error") return "pill pill-rose";
-	if (status === "completed") return "pill pill-green";
+	if (status === "completed" || status === "ready") return "pill pill-green";
 	if (status === "processing") return "pill pill-amber";
 	return "pill pill-blue";
 }
@@ -91,6 +91,10 @@ export default function StudySetPage({
 	}, [loadSet]);
 
 	async function handleGenerate() {
+		if (processing || data?.status === "processing") {
+			return;
+		}
+
 		try {
 			setProcessing(true);
 
@@ -100,19 +104,22 @@ export default function StudySetPage({
 				body: JSON.stringify({ setId: id }),
 			});
 
-			const json = await res.json();
+			const json = (await res.json().catch(() => null)) as {
+				error?: string;
+				cardCount?: number;
+			} | null;
 
 			if (!res.ok) {
-					await loadSet();
-				alert(json.error || "Noe gikk galt");
+				await loadSet();
+				alert(json?.error || "Noe gikk galt");
 				return;
 			}
 
 			await loadSet();
-			alert(`Ferdig. Genererte ${json.cardCount} flashcards.`);
+			alert(`Ferdig. Genererte ${json?.cardCount ?? 0} flashcards.`);
 		} catch (err) {
 			console.error(err);
-				await loadSet();
+			await loadSet();
 			alert("Feil under generering");
 		} finally {
 			setProcessing(false);
@@ -122,6 +129,7 @@ export default function StudySetPage({
 	if (loading) return <main className="page-shell"><div className="page-container"><div className="empty-panel">Laster...</div></div></main>;
 	if (error) return <main className="page-shell"><div className="page-container"><div className="empty-panel">{error}</div></div></main>;
 	if (!data) return <main className="page-shell"><div className="page-container"><div className="empty-panel">Fant ikke studiesettet.</div></div></main>;
+	const isGenerating = processing || data.status === "processing";
 
 	return (
 		<main className="page-shell">
@@ -145,10 +153,10 @@ export default function StudySetPage({
 							</button>
 							<button
 								onClick={handleGenerate}
-								disabled={processing}
+								disabled={isGenerating}
 								className="btn btn-primary"
 							>
-								{processing ? "Genererer..." : "Generer flashcards"}
+								{isGenerating ? "Genererer..." : "Generer flashcards"}
 							</button>
 						</div>
 					</div>
@@ -174,7 +182,9 @@ export default function StudySetPage({
 						</div>
 						<div className="stat-card">
 							<span className="stat-label">Generering</span>
-							<span className="stat-value">{processing ? "Pågår" : "Klar"}</span>
+							<span className="stat-value">
+								{isGenerating ? "Pågår" : data.status === "error" ? "Feilet" : "Klar"}
+							</span>
 						</div>
 						<div className="stat-card">
 							<span className="stat-label">Studieoppsett</span>

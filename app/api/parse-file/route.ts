@@ -44,19 +44,40 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
+			const filePath = typeof setData.filePath === "string" ? setData.filePath : "";
+			const rawFileName = typeof setData.fileName === "string" ? setData.fileName : "";
+
+			if (!filePath || !rawFileName) {
+				await setRef.update({
+					status: "error",
+					lastError: "Studiesettet mangler filreferanse.",
+				});
+				return NextResponse.json(
+					{ error: "Study set is missing file reference" },
+					{ status: 400 },
+				);
+			}
+
+			if (setData.status === "processing") {
+				return NextResponse.json(
+					{ error: "Study set is already processing" },
+					{ status: 409 },
+				);
+			}
+
 		await setRef.update({ status: "processing", lastError: null });
 
-		const file = bucket.file(setData.filePath);
+			const file = bucket.file(filePath);
 		const [buffer] = await file.download();
 
 		let text = "";
-		const fileName = String(setData.fileName || "").toLowerCase();
+			const fileName = rawFileName.toLowerCase();
 
 		if (fileName.endsWith(".pdf")) {
 			text = await parsePDF(buffer);
 		} else if (fileName.endsWith(".docx")) {
 			text = await parseDOCX(buffer);
-		} else {
+			} else {
 				await setRef.update({ status: "error", lastError: "Unsupported file type" });
 			return NextResponse.json(
 				{ error: "Unsupported file type" },

@@ -18,13 +18,26 @@ export default function Upload() {
 	const [title, setTitle] = useState("");
 	const [subject, setSubject] = useState("");
 	const [file, setFile] = useState<File | null>(null);
+	const [uploading, setUploading] = useState(false);
 	const router = useRouter();
+	const trimmedTitle = title.trim();
+	const trimmedSubject = subject.trim();
+	const canUpload = Boolean(trimmedTitle && trimmedSubject && file && !uploading);
 
 	async function handleUpload() {
+		if (uploading) {
+			return;
+		}
+
 		const userId = localStorage.getItem("userId");
 		if (!userId) {
 			alert("Du må logge inn på nytt før du kan laste opp.");
 			router.push("/");
+			return;
+		}
+
+		if (!trimmedTitle || !trimmedSubject) {
+			alert("Legg inn både tittel og fag før du laster opp.");
 			return;
 		}
 
@@ -34,6 +47,7 @@ export default function Upload() {
 		}
 
 		try {
+			setUploading(true);
 			const filePath = `uploads/${userId}/${Date.now()}-${file.name}`;
 			const storageRef = ref(storage, filePath);
 
@@ -41,8 +55,8 @@ export default function Upload() {
 
 			const doc = await addDoc(collection(db, "studySets"), {
 				userId,
-				title,
-				subject,
+				title: trimmedTitle,
+				subject: trimmedSubject,
 				filePath,
 				fileName: file.name,
 				status: "uploaded",
@@ -50,9 +64,11 @@ export default function Upload() {
 			});
 
 			router.push(`/sets/${doc.id}`);
-			} catch (error) {
+		} catch (error) {
 			console.error(error);
-				alert(getErrorMessage(error));
+			alert(getErrorMessage(error));
+		} finally {
+			setUploading(false);
 		}
 	}
 
@@ -72,7 +88,7 @@ export default function Upload() {
 								</p>
 							</div>
 
-							<button className="btn btn-secondary" onClick={() => router.back()}>
+						<button className="btn btn-secondary" onClick={() => router.back()} disabled={uploading}>
 								Tilbake
 							</button>
 						</div>
@@ -88,6 +104,7 @@ export default function Upload() {
 									placeholder="For eksempel: Biologi kapittel 3"
 									value={title}
 									onChange={(e) => setTitle(e.target.value)}
+								disabled={uploading}
 								/>
 							</div>
 
@@ -101,6 +118,7 @@ export default function Upload() {
 									placeholder="For eksempel: Naturfag"
 									value={subject}
 									onChange={(e) => setSubject(e.target.value)}
+								disabled={uploading}
 								/>
 							</div>
 
@@ -114,6 +132,7 @@ export default function Upload() {
 									accept=".pdf,.docx"
 									className="file-input"
 									onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+								disabled={uploading}
 								/>
 								<p className="muted-text text-sm">
 									Støtter PDF og DOCX. {file ? `Valgt fil: ${file.name}` : "Ingen fil valgt ennå."}
@@ -123,10 +142,10 @@ export default function Upload() {
 							<div className="divider" />
 
 							<div className="row-wrap">
-								<button onClick={handleUpload} className="btn btn-primary">
-									Last opp
+								<button onClick={handleUpload} className="btn btn-primary" disabled={!canUpload}>
+									{uploading ? "Laster opp..." : "Last opp"}
 								</button>
-								<button className="btn btn-secondary" onClick={() => router.push("/dashboard")}>
+								<button className="btn btn-secondary" onClick={() => router.push("/dashboard")} disabled={uploading}>
 									Til dashboard
 								</button>
 							</div>
