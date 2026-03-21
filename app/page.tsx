@@ -42,20 +42,6 @@ export default function Home() {
 								Last opp fagmateriale, generer flashcards og hold oversikt over settene dine i ett enkelt grensesnitt.
 							</p>
 						</div>
-						<div className="stats-grid">
-							<div className="stat-card">
-								<span className="stat-label">Fokus</span>
-								<span className="stat-value">Enkel flyt</span>
-							</div>
-							<div className="stat-card">
-								<span className="stat-label">Design</span>
-								<span className="stat-value">Mørk blå</span>
-							</div>
-							<div className="stat-card">
-								<span className="stat-label">Mål</span>
-								<span className="stat-value">Bedre læring</span>
-							</div>
-						</div>
 					</div>
 
 					<div className="surface-panel stack-md">

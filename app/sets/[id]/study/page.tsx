@@ -20,7 +20,6 @@ type Card = {
 	question: string;
 	answer: string;
 	difficulty: "easy" | "medium" | "hard";
-	sourceSnippet?: string | null;
 	feedback?: CardFeedback;
 	feedbackUpdatedAt?: string | null;
 };
@@ -44,9 +43,9 @@ function getDifficultyClass(difficulty: Card["difficulty"]) {
 }
 
 function getFeedbackText(feedback: CardFeedback) {
-	if (feedback === "up") return "Tuva liker dette kortet 👍";
-	if (feedback === "down") return "Dette kortet er markert som mindre nyttig 👎";
-	return "Velg tommel opp eller ned for å lagre feedback på dette kortet.";
+	if (feedback === "up") return "Markert som nyttig 👍";
+	if (feedback === "down") return "Markert som mindre nyttig 👎";
+	return "Marker kortet med 👍 eller 👎.";
 }
 
 export default function StudyModePage({
@@ -213,9 +212,6 @@ export default function StudyModePage({
 				<div className="page-container max-w-5xl">
 					<div className="empty-panel stack-sm">
 						<h1 className="section-title">Ingen kort å studere ennå</h1>
-						<p className="muted-text">
-							Gå tilbake til studiesettet og generer flashcards først.
-						</p>
 						<button className="btn btn-primary w-full sm:w-auto mx-auto" onClick={() => router.push(`/sets/${id}`)}>
 							Tilbake til studiesett
 						</button>
@@ -227,7 +223,6 @@ export default function StudyModePage({
 
 	const currentCard = activeCards[currentIndex];
 	const feedbackText = getFeedbackText(currentCard.feedback ?? null);
-	const sourceSnippet = currentCard.sourceSnippet?.trim() || null;
 
 	return (
 		<main className="page-shell">
@@ -241,7 +236,7 @@ export default function StudyModePage({
 							</div>
 							<h1 className="section-title">{data.title}</h1>
 							<p className="lead-text">
-								Ett kort om gangen. Trykk på kortet for å snu det og gå videre i ditt eget tempo.
+								Ett kort om gangen. Trykk for å snu.
 							</p>
 						</div>
 
@@ -271,27 +266,13 @@ export default function StudyModePage({
 							<span className="study-flip-card__face study-flip-card__face--front">
 								<span className="pill pill-blue">Spørsmål</span>
 								<span className="text-2xl font-semibold leading-9">{currentCard.question}</span>
-								<span className="muted-text text-sm">
-									Trykk på kortet for å se svaret.
-								</span>
+								<span className="muted-text text-sm">Trykk for svar.</span>
 							</span>
 							<span className="study-flip-card__face study-flip-card__face--back">
 									<span className="flex w-full flex-col gap-4 text-left">
 										<span className="pill pill-green">Svar</span>
 										<span className="text-2xl font-semibold leading-9">{currentCard.answer}</span>
-										<span className="rounded-2xl border border-sky-400/20 bg-sky-500/10 px-4 py-3">
-											<span className="block text-xs font-semibold uppercase tracking-[0.18em] text-sky-100/80">
-												Kildeutdrag
-											</span>
-											<span className="mt-2 block text-sm leading-6 text-slate-100/90">
-												{sourceSnippet
-													? `“${sourceSnippet}”`
-													: "Ingen kildeutdrag er lagret på dette kortet ennå. Regenerer kortene for å få direkte tekstutdrag fra dokumentet."}
-											</span>
-										</span>
-										<span className="muted-text text-sm">
-											Trykk igjen for å se spørsmålet.
-										</span>
+										<span className="muted-text text-sm">Trykk for spørsmål.</span>
 									</span>
 							</span>
 						</span>
@@ -306,9 +287,6 @@ export default function StudyModePage({
 						<div className="grid gap-4 lg:grid-cols-[1fr_auto_auto_auto_auto] lg:items-center">
 							<div className="stack-sm">
 								<p className="muted-text text-sm">{feedbackText}</p>
-								<p className="muted-text text-xs">
-									Trykk samme emoji igjen hvis du vil angre eller endre mening senere.
-								</p>
 							</div>
 							<button
 								type="button"
@@ -322,7 +300,7 @@ export default function StudyModePage({
 								aria-pressed={currentCard.feedback === "up"}
 							>
 								<span aria-hidden="true">👍</span>
-								Bra kort
+								Nyttig
 							</button>
 							<button
 								type="button"
@@ -336,7 +314,7 @@ export default function StudyModePage({
 								aria-pressed={currentCard.feedback === "down"}
 							>
 								<span aria-hidden="true">👎</span>
-								Ikke så bra
+								Mindre nyttig
 							</button>
 						<button
 							type="button"

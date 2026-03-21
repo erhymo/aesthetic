@@ -63,6 +63,21 @@ function getCardCountOptions(cardCount: number) {
 		.sort((left, right) => left - right);
 }
 
+function parseProcessResponse(rawBody: string) {
+	if (!rawBody) {
+		return null;
+	}
+
+	try {
+		return JSON.parse(rawBody) as {
+			error?: string;
+			cardCount?: number;
+		};
+	} catch {
+		return null;
+	}
+}
+
 export default function StudySetPage({
 	params,
 }: {
@@ -87,10 +102,11 @@ export default function StudySetPage({
 			if (!snap.exists()) {
 				setData(null);
 				setCards([]);
-				return;
+				return null;
 			}
 
-			setData(snap.data() as StudySet);
+			const studySetData = snap.data() as StudySet;
+			setData(studySetData);
 
 			const cardsSnap = await getDocs(
 				query(collection(db, "studySets", id, "cards"), orderBy("createdAt", "asc")),
@@ -102,11 +118,13 @@ export default function StudySetPage({
 			}));
 
 			setCards(loadedCards);
+			return studySetData;
 		} catch (error) {
 			console.error(error);
 			setError("Kunne ikke laste studiesettet.");
 			setData(null);
 			setCards([]);
+			return null;
 		} finally {
 			setLoading(false);
 		}
@@ -147,23 +165,28 @@ export default function StudySetPage({
 				body: JSON.stringify({ setId: id }),
 			});
 
-			const json = (await res.json().catch(() => null)) as {
-				error?: string;
-				cardCount?: number;
-			} | null;
+			const rawBody = await res.text();
+			const json = parseProcessResponse(rawBody);
+			const responseError = typeof json?.error === "string" ? json.error : rawBody.trim();
 
 			if (!res.ok) {
-				await loadSet();
-				alert(json?.error || "Noe gikk galt");
+				const refreshedSet = await loadSet();
+				alert(
+					refreshedSet?.lastError?.trim() ||
+						responseError ||
+						`Generering feilet (${res.status}).`,
+				);
 				return;
 			}
 
-			await loadSet();
-			alert(`Ferdig. Genererte ${json?.cardCount ?? 0} flashcards.`);
+			const refreshedSet = await loadSet();
+			const generatedCardCount =
+				typeof json?.cardCount === "number" ? json.cardCount : refreshedSet?.cardCount ?? 0;
+			alert(`Ferdig. Genererte ${generatedCardCount} flashcards.`);
 		} catch (err) {
 			console.error(err);
 			await loadSet();
-			alert("Feil under generering");
+			alert("Feil under generering. Prøv igjen om litt.");
 		} finally {
 			setProcessing(false);
 		}

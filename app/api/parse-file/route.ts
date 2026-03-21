@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 		setId = typeof body.setId === "string" ? body.setId : null;
 
 		if (!setId) {
-			return NextResponse.json({ error: "Missing setId" }, { status: 400 });
+				return NextResponse.json({ error: "Mangler studiesett-id." }, { status: 400 });
 		}
 
 		const db = getFirestore();
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
 
 		if (!setSnap.exists) {
 			return NextResponse.json(
-				{ error: "Study set not found" },
+					{ error: "Fant ikke studiesettet." },
 				{ status: 404 },
 			);
 		}
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 		const setData = setSnap.data();
 		if (!setData) {
 			return NextResponse.json(
-				{ error: "Missing study set data" },
+					{ error: "Mangler studiesettdata." },
 				{ status: 500 },
 			);
 		}
@@ -60,14 +60,14 @@ export async function POST(req: NextRequest) {
 			});
 
 			return NextResponse.json(
-				{ error: "Study set is missing file reference" },
+					{ error: "Studiesettet mangler filreferanse." },
 				{ status: 400 },
 			);
 		}
 
 		if (setData.status === "processing") {
 			return NextResponse.json(
-				{ error: "Study set is already processing" },
+					{ error: "Generering pågår allerede." },
 				{ status: 409 },
 			);
 		}
@@ -81,17 +81,20 @@ export async function POST(req: NextRequest) {
 		try {
 			text = await extractTextFromFileBuffer(buffer, rawFileName);
 		} catch {
-			await setRef.update({ status: "error", lastError: "Unsupported file type" });
+				await setRef.update({ status: "error", lastError: "Filtypen støttes ikke." });
 			return NextResponse.json(
-				{ error: "Unsupported file type" },
+					{ error: "Filtypen støttes ikke." },
 				{ status: 400 },
 			);
 		}
 
 		if (!text || text.trim().length < 100) {
-			await setRef.update({ status: "error", lastError: "Too little text extracted" });
+				await setRef.update({
+					status: "error",
+					lastError: "Det ble hentet ut for lite tekst fra filen.",
+				});
 			return NextResponse.json(
-				{ error: "Too little text extracted" },
+					{ error: "Det ble hentet ut for lite tekst fra filen." },
 				{ status: 400 },
 			);
 		}
@@ -101,10 +104,10 @@ export async function POST(req: NextRequest) {
 		if (chunks.length === 0) {
 			await setRef.update({
 				status: "error",
-				lastError: "No usable text chunks extracted",
+					lastError: "Fant ingen brukbare tekstavsnitt i filen.",
 			});
 			return NextResponse.json(
-				{ error: "No usable text chunks extracted" },
+					{ error: "Fant ingen brukbare tekstavsnitt i filen." },
 				{ status: 400 },
 			);
 		}
@@ -156,7 +159,7 @@ export async function POST(req: NextRequest) {
 			});
 
 			return NextResponse.json(
-				{ error: "No valid flashcards were generated" },
+					{ error: "Ingen gyldige flashcards ble generert fra teksten." },
 				{ status: 500 },
 			);
 		}
@@ -190,8 +193,12 @@ export async function POST(req: NextRequest) {
 			success: true,
 			cardCount: deduped.length,
 		});
-	} catch (error) {
+		} catch (error) {
 		console.error("PROCESS ERROR:", error);
+			const errorMessage =
+				error instanceof Error && error.message.trim().length > 0
+					? error.message
+					: "Ukjent feil under generering.";
 
 		if (setId) {
 			await getFirestore()
@@ -199,7 +206,7 @@ export async function POST(req: NextRequest) {
 				.doc(setId)
 				.update({
 					status: "error",
-					lastError: error instanceof Error ? error.message : "Unknown error",
+						lastError: errorMessage,
 				})
 				.catch((updateError) => {
 					console.error("FAILED TO UPDATE ERROR STATUS:", updateError);
@@ -207,7 +214,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		return NextResponse.json(
-			{ error: "Failed to process study set" },
+				{ error: errorMessage },
 			{ status: 500 },
 		);
 	}
