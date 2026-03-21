@@ -7,7 +7,9 @@ import {
 	generateSummaryFromText,
 	type DocumentSummary,
 } from "@/lib/parseFile";
+import { getErrorMessage, withRetry } from "@/lib/transientRetry";
 
+export const runtime = "nodejs";
 export const maxDuration = 60;
 
 if (!getApps().length) {
@@ -43,6 +45,12 @@ function getStoredSummary(data: Record<string, unknown>): DocumentSummary | null
 	};
 }
 
+async function updateSummaryState(setId: string, data: Record<string, unknown>) {
+	await withRetry("summary status update", () =>
+		getFirestore().collection("studySets").doc(setId).update(data),
+	);
+}
+
 export async function POST(req: NextRequest) {
 	let setId: string | null = null;
 
@@ -58,7 +66,7 @@ export async function POST(req: NextRequest) {
 		const db = getFirestore();
 		const bucket = getStorage().bucket();
 		const setRef = db.collection("studySets").doc(setId);
-		const setSnap = await setRef.get();
+		const setSnap = await withRetry("study set lookup", () => setRef.get());
 
 		if (!setSnap.exists) {
 			return NextResponse.json({ error: "Study set not found" }, { status: 404 });
@@ -80,7 +88,7 @@ export async function POST(req: NextRequest) {
 		const rawFileName = typeof setData.fileName === "string" ? setData.fileName : "";
 
 		if (!filePath || !rawFileName) {
-			await setRef.update({
+			await updateSummaryState(setId, {
 				summaryStatus: "error",
 				summaryLastError: "Studiesettet mangler filreferanse.",
 			});
@@ -98,19 +106,19 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		await setRef.update({
+		await updateSummaryState(setId, {
 			summaryStatus: "processing",
 			summaryLastError: null,
 		});
 
 		const file = bucket.file(filePath);
-		const [buffer] = await file.download();
+		const [buffer] = await withRetry("summary file download", () => file.download());
 		let text = "";
 
 		try {
 			text = await extractTextFromFileBuffer(buffer, rawFileName);
 		} catch {
-			await setRef.update({
+			await updateSummaryState(setId, {
 				summaryStatus: "error",
 				summaryLastError: "Unsupported file type",
 			});
@@ -122,7 +130,7 @@ export async function POST(req: NextRequest) {
 		}
 
 		if (!text || text.trim().length < 100) {
-			await setRef.update({
+			await updateSummaryState(setId, {
 				summaryStatus: "error",
 				summaryLastError: "Too little text extracted",
 			});
@@ -135,7 +143,7 @@ export async function POST(req: NextRequest) {
 
 		const summary = await generateSummaryFromText(text);
 
-		await setRef.update({
+		await updateSummaryState(setId, {
 			summaryStatus: "ready",
 			summaryTitle: summary.title,
 			summaryIntro: summary.intro,
@@ -149,24 +157,18 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ success: true, cached: false, summary });
 	} catch (error) {
 		console.error("SUMMARY ERROR:", error);
-			const errorMessage =
-				error instanceof Error && error.message.trim().length > 0
-					? error.message
-					: "Unknown summary error";
+		const errorMessage = getErrorMessage(error);
 
 		if (setId) {
-			await getFirestore()
-				.collection("studySets")
-				.doc(setId)
-				.update({
-					summaryStatus: "error",
-						summaryLastError: errorMessage,
-				})
+			await updateSummaryState(setId, {
+				summaryStatus: "error",
+				summaryLastError: errorMessage,
+			})
 				.catch((updateError) => {
 					console.error("FAILED TO UPDATE SUMMARY ERROR STATUS:", updateError);
 				});
 		}
 
-			return NextResponse.json({ error: errorMessage }, { status: 500 });
+		return NextResponse.json({ error: errorMessage }, { status: 500 });
 	}
 }
