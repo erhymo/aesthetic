@@ -89,6 +89,10 @@ a {
   margin: 0 auto;
 }
 
+.study-page-container {
+	max-width: 84rem;
+}
+
 .auth-shell {
   display: flex;
   min-height: 100vh;
@@ -114,6 +118,10 @@ a {
 .surface-panel {
   border-radius: 1.5rem;
   padding: 1.5rem;
+}
+
+.study-surface-panel {
+	padding: 1.1rem;
 }
 
 .empty-panel {
@@ -406,14 +414,14 @@ a {
 
 .study-flip-card {
 	width: 100%;
-	min-height: 26rem;
+	min-height: 28rem;
 	perspective: 1400px;
 }
 
 .study-flip-card__inner {
 	position: relative;
 	display: block;
-	min-height: 26rem;
+	min-height: 28rem;
 	transform-style: preserve-3d;
 	transition: transform 0.5s ease;
 }
@@ -483,9 +491,15 @@ a {
 	gap: 0.75rem;
 }
 
+.study-card-button {
+	padding: 0.64rem 0.8rem;
+	font-size: 0.82rem;
+	border-radius: 0.78rem;
+	gap: 0.35rem;
+}
+
 .study-feedback-button {
-	padding: 0.72rem 0.95rem;
-	font-size: 0.95rem;
+	font-size: 0.78rem;
 }
 
 .divider {
@@ -510,6 +524,10 @@ a {
     padding: 1.25rem;
   }
 
+	.study-surface-panel {
+		padding: 0.7rem;
+	}
+
   .topbar {
     flex-direction: column;
     align-items: flex-start;
@@ -517,11 +535,11 @@ a {
 
 	.study-flip-card,
 	.study-flip-card__inner {
-			min-height: 26.5rem;
+				min-height: 29.5rem;
 	}
 
 	.study-flip-card__face {
-		padding: 1.25rem;
+			padding: 1rem;
 	}
 
 		.study-flip-card__actions {

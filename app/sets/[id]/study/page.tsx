@@ -233,7 +233,7 @@ export default function StudyModePage({
 				<div className="study-flip-card__actions">
 					<button
 						type="button"
-						className="btn btn-secondary w-full"
+						className="btn btn-secondary study-card-button w-full"
 						onClick={() => setCurrentIndex((index) => Math.max(index - 1, 0))}
 						disabled={isFirstCard}
 					>
@@ -241,7 +241,7 @@ export default function StudyModePage({
 					</button>
 					<button
 						type="button"
-						className="btn btn-primary w-full"
+						className="btn btn-primary study-card-button w-full"
 						onClick={() => setCurrentIndex((index) => Math.min(index + 1, activeCards.length - 1))}
 						disabled={isLastCard}
 					>
@@ -249,7 +249,7 @@ export default function StudyModePage({
 					</button>
 					<button
 						type="button"
-						className={`btn study-feedback-button w-full ${
+						className={`btn study-card-button study-feedback-button w-full ${
 							currentCard.feedback === "up"
 								? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
 								: "btn-secondary"
@@ -263,7 +263,7 @@ export default function StudyModePage({
 					</button>
 					<button
 						type="button"
-						className={`btn study-feedback-button w-full ${
+						className={`btn study-card-button study-feedback-button w-full ${
 							currentCard.feedback === "down"
 								? "border-rose-400/40 bg-rose-500/15 text-rose-100"
 								: "btn-secondary"
@@ -282,7 +282,7 @@ export default function StudyModePage({
 
 	return (
 		<main className="page-shell">
-			<div className="page-container max-w-5xl stack-lg">
+			<div className="page-container study-page-container stack-lg">
 				<section className="hero-panel stack-lg">
 					<div className="topbar">
 						<div className="stack-sm">
@@ -312,7 +312,7 @@ export default function StudyModePage({
 					</div>
 				</section>
 
-				<section className="surface-panel stack-lg">
+				<section className="surface-panel study-surface-panel stack-lg">
 						<div className={`study-flip-card ${flipped ? "study-flip-card--flipped" : ""}`}>
 							<div className="study-flip-card__inner">
 								<div className="study-flip-card__face study-flip-card__face--front">
