@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { db } from "@/lib/firebase";
 import {
 	collection,
@@ -10,6 +11,7 @@ import {
 	orderBy,
 	query,
 } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 
 type Card = {
 	id: string;
@@ -23,6 +25,7 @@ type StudySet = {
 	subject: string;
 	status: string;
 	cardCount?: number;
+	extractedTextLength?: number;
 	lastError?: string | null;
 };
 
@@ -33,10 +36,31 @@ function getStatusClass(status: string) {
 	return "pill pill-blue";
 }
 
+function getStatusLabel(status: string) {
+	if (status === "error") return "Feilet";
+	if (status === "ready" || status === "completed") return "Klar";
+	if (status === "processing") return "Genererer";
+	if (status === "uploaded") return "Lastet opp";
+	return status;
+}
+
 function getDifficultyClass(difficulty: Card["difficulty"]) {
 	if (difficulty === "easy") return "pill pill-green";
 	if (difficulty === "hard") return "pill pill-rose";
 	return "pill pill-amber";
+}
+
+function getDifficultyLabel(difficulty: Card["difficulty"]) {
+	if (difficulty === "easy") return "Lett";
+	if (difficulty === "hard") return "Vanskelig";
+	return "Middels";
+}
+
+function getCardCountOptions(cardCount: number) {
+	if (cardCount <= 0) return [];
+
+	return Array.from(new Set([5, 10, 15, 20, cardCount].filter((count) => count <= cardCount)))
+		.sort((left, right) => left - right);
 }
 
 export default function StudySetPage({
@@ -45,11 +69,13 @@ export default function StudySetPage({
 	params: Promise<{ id: string }>;
 }) {
 	const { id } = use(params);
+	const router = useRouter();
 	const [data, setData] = useState<StudySet | null>(null);
 	const [cards, setCards] = useState<Card[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [processing, setProcessing] = useState(false);
+	const [selectedCardCount, setSelectedCardCount] = useState(0);
 
 	const loadSet = useCallback(async () => {
 		setLoading(true);
@@ -89,6 +115,23 @@ export default function StudySetPage({
 	useEffect(() => {
 		void loadSet();
 	}, [loadSet]);
+
+	useEffect(() => {
+		const options = getCardCountOptions(cards.length);
+
+		if (options.length === 0) {
+			setSelectedCardCount(0);
+			return;
+		}
+
+		setSelectedCardCount((currentCount) => {
+			if (options.includes(currentCount)) {
+				return currentCount;
+			}
+
+			return options.includes(10) ? 10 : options[options.length - 1];
+		});
+	}, [cards.length]);
 
 	async function handleGenerate() {
 		if (processing || data?.status === "processing") {
@@ -130,6 +173,17 @@ export default function StudySetPage({
 	if (error) return <main className="page-shell"><div className="page-container"><div className="empty-panel">{error}</div></div></main>;
 	if (!data) return <main className="page-shell"><div className="page-container"><div className="empty-panel">Fant ikke studiesettet.</div></div></main>;
 	const isGenerating = processing || data.status === "processing";
+	const countOptions = getCardCountOptions(cards.length);
+	const previewCards = cards.slice(0, 6);
+	const selectedCount = Math.min(selectedCardCount || cards.length, cards.length);
+
+	function handleStartStudy() {
+		if (isGenerating || cards.length === 0 || selectedCount === 0) {
+			return;
+		}
+
+		router.push(`/sets/${id}/study?count=${selectedCount}`);
+	}
 
 	return (
 		<main className="page-shell">
@@ -143,18 +197,18 @@ export default function StudySetPage({
 							</div>
 							<h1 className="section-title">{data.title}</h1>
 							<p className="lead-text">
-								Se status, generer flashcards og gå gjennom kortene i et ryddig arbeidsområde.
+									Bruk denne siden som kontrollsenter: generer kort, velg antall og gå videre til roligere studiemodus.
 							</p>
 						</div>
 
 						<div className="row-wrap">
-							<button className="btn btn-secondary" onClick={() => history.back()}>
-								Tilbake
-							</button>
+								<Link href="/dashboard" className="btn btn-secondary w-full sm:w-auto">
+									Til dashboard
+								</Link>
 							<button
 								onClick={handleGenerate}
 								disabled={isGenerating}
-								className="btn btn-primary"
+									className="btn btn-primary w-full sm:w-auto"
 							>
 								{isGenerating ? "Genererer..." : "Generer flashcards"}
 							</button>
@@ -163,7 +217,10 @@ export default function StudySetPage({
 
 					<div className="row-wrap">
 						<span className="pill pill-neutral">Fag: {data.subject}</span>
-						<span className={getStatusClass(data.status)}>Status: {data.status}</span>
+							<span className={getStatusClass(data.status)}>
+								Status: {getStatusLabel(data.status)}
+							</span>
+							<span className="pill pill-blue">{cards.length} kort klare</span>
 					</div>
 
 						{data.lastError ? (
@@ -187,40 +244,125 @@ export default function StudySetPage({
 							</span>
 						</div>
 						<div className="stat-card">
-							<span className="stat-label">Studieoppsett</span>
-							<span className="stat-value">Enkelt og ryddig</span>
+								<span className="stat-label">Kildetekst</span>
+								<span className="stat-value">
+									{data.extractedTextLength ? `${data.extractedTextLength} tegn` : "Ikke klar"}
+								</span>
 						</div>
 					</div>
 				</section>
 
-				<section className="stack-md">
-					<div className="topbar">
-						<h2 className="section-title text-2xl">Flashcards</h2>
-						<span className="pill pill-neutral">{cards.length} kort</span>
-					</div>
+					<section className="grid gap-4 lg:grid-cols-2">
+						<div className="surface-panel stack-md">
+							<div className="stack-sm">
+								<div className="brand-mark">
+									<span className="brand-dot" />
+									Start
+								</div>
+								<h2 className="text-2xl font-semibold">Studer ett kort om gangen</h2>
+								<p className="muted-text leading-7">
+									Velg hvor mange kort du vil ta nå. På mobil og iPad kan du trykke på selve kortet for å snu det og gi tommel opp eller ned underveis.
+								</p>
+							</div>
 
-					{cards.length === 0 ? (
-						<div className="empty-panel">
-							<h3 className="text-xl font-semibold">Ingen flashcards ennå</h3>
-							<p className="muted-text mt-2">
-								Trykk på «Generer flashcards» for å fylle settet med spørsmål og svar.
+							{cards.length === 0 ? (
+								<div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+									Generer flashcards først for å aktivere studiemodusen.
+								</div>
+							) : (
+								<>
+									<div className="input-group max-w-xs">
+										<label className="input-label" htmlFor="card-count">
+											Antall kort
+										</label>
+										<select
+											id="card-count"
+											className="input-field"
+											value={selectedCardCount}
+											onChange={(event) => setSelectedCardCount(Number(event.target.value))}
+										>
+											{countOptions.map((count) => (
+												<option key={count} value={count}>
+													{count} kort
+												</option>
+											))}
+										</select>
+									</div>
+
+									<div className="row-wrap">
+										<button
+											type="button"
+											onClick={handleStartStudy}
+											disabled={isGenerating}
+											className="btn btn-primary w-full sm:w-auto"
+										>
+											Start med {selectedCount} kort
+										</button>
+									</div>
+								</>
+							)}
+						</div>
+
+						<div className="surface-panel stack-md">
+							<div className="stack-sm">
+								<div className="brand-mark">
+									<span className="brand-dot" />
+									Kort oppsummert
+								</div>
+								<h2 className="text-2xl font-semibold">Egen oppsummeringsmodus</h2>
+								<p className="muted-text leading-7">
+									Navigasjonen er klar. I neste steg bygger jeg den faktiske oppsummeringen med streng kildekontroll fra dokumentet ditt.
+								</p>
+							</div>
+
+							<div className="row-wrap">
+								<Link href={`/sets/${id}/summary`} className="btn btn-secondary w-full sm:w-auto">
+									Åpne Kort oppsummert
+								</Link>
+							</div>
+							<p className="muted-text text-sm">
+								Alt innhold i denne modusen skal komme fra opplastet tekst, ikke fra web.
 							</p>
 						</div>
-					) : (
-						<div className="card-grid">
-							{cards.map((card) => (
-								<div key={card.id} className="card-item stack-sm">
-									<div className="row-wrap">
-										<span className={getDifficultyClass(card.difficulty)}>
-											{card.difficulty}
-										</span>
-									</div>
-									<h3 className="text-lg font-semibold">{card.question}</h3>
-									<p className="muted-text leading-7">{card.answer}</p>
-								</div>
-							))}
+					</section>
+
+					<section className="stack-md">
+						<div className="topbar">
+							<h2 className="section-title text-2xl">Kortoversikt</h2>
+							<span className="pill pill-neutral">{cards.length} kort</span>
 						</div>
-					)}
+
+						{previewCards.length === 0 ? (
+							<div className="empty-panel">
+								<h3 className="text-xl font-semibold">Ingen flashcards ennå</h3>
+								<p className="muted-text mt-2">
+									Trykk på «Generer flashcards» for å fylle settet med spørsmål og svar.
+								</p>
+							</div>
+						) : (
+							<>
+								<div className="card-grid">
+									{previewCards.map((card) => (
+										<div key={card.id} className="card-item stack-sm">
+											<div className="row-wrap">
+												<span className={getDifficultyClass(card.difficulty)}>
+													{getDifficultyLabel(card.difficulty)}
+												</span>
+											</div>
+											<h3 className="text-lg font-semibold leading-7">{card.question}</h3>
+											<p className="muted-text text-sm">
+												Svar vises i studiemodus for en roligere flyt.
+											</p>
+										</div>
+									))}
+								</div>
+								{cards.length > previewCards.length ? (
+									<p className="muted-text text-sm">
+										Viser de første {previewCards.length} kortene her. Resten åpnes fra studiemodus.
+									</p>
+								) : null}
+							</>
+						)}
 				</section>
 			</div>
 		</main>

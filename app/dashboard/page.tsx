@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { useRouter } from "next/navigation";
 
 type StudySet = {
 	id: string;
@@ -13,7 +13,6 @@ type StudySet = {
 
 export default function Dashboard() {
 	const [sets, setSets] = useState<StudySet[]>([]);
-	const router = useRouter();
 
 	useEffect(() => {
 		const userId = localStorage.getItem("userId");
@@ -49,29 +48,19 @@ export default function Dashboard() {
 							</div>
 							<h1 className="section-title">Dine studiesett</h1>
 							<p className="lead-text">
-								Hold oversikt over opplastede filer og åpne settene dine for å generere eller lese flashcards.
+									Åpne et tema, velg hvor mange kort du vil øve på, og gå videre til en roligere studieflyt.
 							</p>
 						</div>
 
-						<button onClick={() => router.push("/upload")} className="btn btn-primary">
+							<Link href="/upload" className="btn btn-primary w-full sm:w-auto">
 							+ Nytt sett
-						</button>
+							</Link>
 					</div>
 
-					<div className="stats-grid">
-						<div className="stat-card">
-							<span className="stat-label">Antall sett</span>
-							<span className="stat-value">{sets.length}</span>
+						<div className="row-wrap">
+							<span className="pill pill-neutral">{sets.length} studiesett</span>
+							<span className="pill pill-blue">Tilpasset mobil, nettbrett og desktop</span>
 						</div>
-						<div className="stat-card">
-							<span className="stat-label">Status</span>
-							<span className="stat-value">Klar til studie</span>
-						</div>
-						<div className="stat-card">
-							<span className="stat-label">Neste steg</span>
-							<span className="stat-value">Last opp nytt sett</span>
-						</div>
-					</div>
 				</section>
 
 				<section className="stack-md">
@@ -88,21 +77,27 @@ export default function Dashboard() {
 							<p className="muted-text mt-2">
 								Start med å laste opp en PDF- eller DOCX-fil for å generere dine første flashcards.
 							</p>
+								<div className="mt-5 flex justify-center">
+									<Link href="/upload" className="btn btn-primary w-full sm:w-auto">
+										Last opp første sett
+									</Link>
+								</div>
 						</div>
 					) : (
 						<div className="card-grid">
 							{sets.map((set) => (
-								<div
+									<Link
 									key={set.id}
-									className="card-item card-item--interactive stack-sm"
-									onClick={() => router.push(`/sets/${set.id}`)}
+										href={`/sets/${set.id}`}
+										className="card-item card-item--interactive stack-sm block"
 								>
 									<div className="row-wrap">
 										<span className="pill pill-blue">Studiesett</span>
+											<span className="pill pill-neutral">Åpne kontrollsenter</span>
 									</div>
 									<h3 className="text-xl font-semibold">{set.title}</h3>
 									<p className="muted-text">{set.subject}</p>
-								</div>
+									</Link>
 							))}
 						</div>
 					)}
