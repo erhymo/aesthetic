@@ -45,7 +45,7 @@ function getDifficultyClass(difficulty: Card["difficulty"]) {
 function getFeedbackText(feedback: CardFeedback) {
 	if (feedback === "up") return "Markert som nyttig 👍";
 	if (feedback === "down") return "Markert som mindre nyttig 👎";
-	return "Marker kortet med 👍 eller 👎.";
+	return null;
 }
 
 export default function StudyModePage({
@@ -229,7 +229,7 @@ export default function StudyModePage({
 	function renderCardFooter() {
 		return (
 			<div className="study-flip-card__footer">
-				<p className="muted-text text-sm">{feedbackText}</p>
+				{feedbackText ? <p className="muted-text text-sm">{feedbackText}</p> : null}
 				<div className="study-flip-card__actions">
 					<button
 						type="button"
@@ -249,7 +249,7 @@ export default function StudyModePage({
 					</button>
 					<button
 						type="button"
-						className={`btn w-full text-lg ${
+						className={`btn study-feedback-button w-full ${
 							currentCard.feedback === "up"
 								? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
 								: "btn-secondary"
@@ -263,7 +263,7 @@ export default function StudyModePage({
 					</button>
 					<button
 						type="button"
-						className={`btn w-full text-lg ${
+						className={`btn study-feedback-button w-full ${
 							currentCard.feedback === "down"
 								? "border-rose-400/40 bg-rose-500/15 text-rose-100"
 								: "btn-secondary"

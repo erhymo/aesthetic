@@ -473,6 +473,11 @@ a {
 	gap: 0.75rem;
 }
 
+.study-feedback-button {
+	padding: 0.72rem 0.95rem;
+	font-size: 0.95rem;
+}
+
 .divider {
   height: 1px;
   width: 100%;
@@ -502,7 +507,7 @@ a {
 
 	.study-flip-card,
 	.study-flip-card__inner {
-		min-height: 22rem;
+			min-height: 26.5rem;
 	}
 
 	.study-flip-card__face {
