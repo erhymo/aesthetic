@@ -8,6 +8,8 @@ import {
 	type DocumentSummary,
 } from "@/lib/parseFile";
 
+export const maxDuration = 60;
+
 if (!getApps().length) {
 	initializeApp({
 		credential: cert(JSON.parse(process.env.FIREBASE_ADMIN_KEY!)),
@@ -147,6 +149,10 @@ export async function POST(req: NextRequest) {
 		return NextResponse.json({ success: true, cached: false, summary });
 	} catch (error) {
 		console.error("SUMMARY ERROR:", error);
+			const errorMessage =
+				error instanceof Error && error.message.trim().length > 0
+					? error.message
+					: "Unknown summary error";
 
 		if (setId) {
 			await getFirestore()
@@ -154,17 +160,13 @@ export async function POST(req: NextRequest) {
 				.doc(setId)
 				.update({
 					summaryStatus: "error",
-					summaryLastError:
-						error instanceof Error ? error.message : "Unknown summary error",
+						summaryLastError: errorMessage,
 				})
 				.catch((updateError) => {
 					console.error("FAILED TO UPDATE SUMMARY ERROR STATUS:", updateError);
 				});
 		}
 
-		return NextResponse.json(
-			{ error: "Failed to generate summary" },
-			{ status: 500 },
-		);
+			return NextResponse.json({ error: errorMessage }, { status: 500 });
 	}
 }

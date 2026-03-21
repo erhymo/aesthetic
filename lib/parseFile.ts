@@ -485,16 +485,17 @@ export async function generateCardsFromChunk(
 
 export async function generateSummaryFromText(text: string): Promise<DocumentSummary> {
 	const summarySegments = groupChunksForSummary(text);
-	const segmentBullets: string[] = [];
-
-	for (const segment of summarySegments) {
-		const bullets = await summarizeSegment(segment);
-		segmentBullets.push(...bullets);
-	}
+	const segmentBullets = (
+		await Promise.all(summarySegments.map((segment) => summarizeSegment(segment)))
+	).flat();
 
 	const dedupedBullets = Array.from(
 		new Set(segmentBullets.map((bullet) => bullet.replace(/\s+/g, " ").trim())),
 	).slice(0, 10);
+
+	if (dedupedBullets.length === 0) {
+		throw new Error("Ingen oppsummeringspunkter ble hentet ut fra teksten.");
+	}
 
 	const response = await client.responses.create({
 		model: "gpt-5.1",
