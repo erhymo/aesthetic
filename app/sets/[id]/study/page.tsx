@@ -322,8 +322,9 @@ export default function StudyModePage({
 										className="study-flip-card__content"
 									>
 										<span className="pill pill-blue">Spørsmål</span>
-										<span className="text-2xl font-semibold leading-9">{currentCard.question}</span>
-										<span className="muted-text text-sm">Trykk for svar.</span>
+										<span className="study-flip-card__body">
+											<span className="text-2xl font-semibold leading-9">{currentCard.question}</span>
+										</span>
 									</button>
 									{renderCardFooter()}
 								</div>
@@ -333,10 +334,9 @@ export default function StudyModePage({
 										onClick={() => setFlipped((current) => !current)}
 										className="study-flip-card__content"
 									>
-										<span className="flex w-full flex-col gap-4 text-left">
-											<span className="pill pill-green">Svar</span>
+										<span className="pill pill-green">Svar</span>
+										<span className="study-flip-card__body">
 											<span className="text-2xl font-semibold leading-9">{currentCard.answer}</span>
-											<span className="muted-text text-sm">Trykk for spørsmål.</span>
 										</span>
 									</button>
 									{renderCardFooter()}
