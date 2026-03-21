@@ -1,0 +1,2 @@
+export { chunkText } from "./parseFile";
+
