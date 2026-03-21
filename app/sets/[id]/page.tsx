@@ -25,6 +25,18 @@ type StudySet = {
 	cardCount?: number;
 };
 
+function getStatusClass(status: string) {
+	if (status === "completed") return "pill pill-green";
+	if (status === "processing") return "pill pill-amber";
+	return "pill pill-blue";
+}
+
+function getDifficultyClass(difficulty: Card["difficulty"]) {
+	if (difficulty === "easy") return "pill pill-green";
+	if (difficulty === "hard") return "pill pill-rose";
+	return "pill pill-amber";
+}
+
 export default function StudySetPage({
 	params,
 }: {
@@ -103,41 +115,90 @@ export default function StudySetPage({
 		}
 	}
 
-	if (loading) return <main className="p-6">Laster...</main>;
-	if (error) return <main className="p-6">{error}</main>;
-	if (!data) return <main className="p-6">Fant ikke studiesettet.</main>;
+	if (loading) return <main className="page-shell"><div className="page-container"><div className="empty-panel">Laster...</div></div></main>;
+	if (error) return <main className="page-shell"><div className="page-container"><div className="empty-panel">{error}</div></div></main>;
+	if (!data) return <main className="page-shell"><div className="page-container"><div className="empty-panel">Fant ikke studiesettet.</div></div></main>;
 
 	return (
-		<main className="p-6 max-w-3xl mx-auto">
-			<div className="border rounded-2xl p-6 mb-6 space-y-2">
-				<h1 className="text-2xl font-semibold">{data.title}</h1>
-				<p>Fag: {data.subject}</p>
-				<p>Status: {data.status}</p>
-				<p>Antall cards: {cards.length}</p>
-
-				<button
-					onClick={handleGenerate}
-					disabled={processing}
-					className="mt-4 border rounded-xl px-4 py-3 disabled:opacity-50"
-				>
-					{processing ? "Genererer..." : "Generer flashcards"}
-				</button>
-			</div>
-
-			<div className="space-y-4">
-				{cards.length === 0 ? (
-					<p>Ingen flashcards ennå.</p>
-				) : (
-					cards.map((card) => (
-						<div key={card.id} className="border rounded-2xl p-5 space-y-2">
-							<p className="text-xs uppercase tracking-wide text-gray-500">
-								{card.difficulty}
+		<main className="page-shell">
+			<div className="page-container max-w-5xl stack-lg">
+				<section className="hero-panel stack-lg">
+					<div className="topbar">
+						<div className="stack-sm">
+							<div className="brand-mark">
+								<span className="brand-dot" />
+								Studiesett
+							</div>
+							<h1 className="section-title">{data.title}</h1>
+							<p className="lead-text">
+								Se status, generer flashcards og gå gjennom kortene i et ryddig arbeidsområde.
 							</p>
-							<h2 className="font-semibold">{card.question}</h2>
-							<p>{card.answer}</p>
 						</div>
-					))
-				)}
+
+						<div className="row-wrap">
+							<button className="btn btn-secondary" onClick={() => history.back()}>
+								Tilbake
+							</button>
+							<button
+								onClick={handleGenerate}
+								disabled={processing}
+								className="btn btn-primary"
+							>
+								{processing ? "Genererer..." : "Generer flashcards"}
+							</button>
+						</div>
+					</div>
+
+					<div className="row-wrap">
+						<span className="pill pill-neutral">Fag: {data.subject}</span>
+						<span className={getStatusClass(data.status)}>Status: {data.status}</span>
+					</div>
+
+					<div className="stats-grid">
+						<div className="stat-card">
+							<span className="stat-label">Cards</span>
+							<span className="stat-value">{cards.length}</span>
+						</div>
+						<div className="stat-card">
+							<span className="stat-label">Generering</span>
+							<span className="stat-value">{processing ? "Pågår" : "Klar"}</span>
+						</div>
+						<div className="stat-card">
+							<span className="stat-label">Studieoppsett</span>
+							<span className="stat-value">Enkelt og ryddig</span>
+						</div>
+					</div>
+				</section>
+
+				<section className="stack-md">
+					<div className="topbar">
+						<h2 className="section-title text-2xl">Flashcards</h2>
+						<span className="pill pill-neutral">{cards.length} kort</span>
+					</div>
+
+					{cards.length === 0 ? (
+						<div className="empty-panel">
+							<h3 className="text-xl font-semibold">Ingen flashcards ennå</h3>
+							<p className="muted-text mt-2">
+								Trykk på «Generer flashcards» for å fylle settet med spørsmål og svar.
+							</p>
+						</div>
+					) : (
+						<div className="card-grid">
+							{cards.map((card) => (
+								<div key={card.id} className="card-item stack-sm">
+									<div className="row-wrap">
+										<span className={getDifficultyClass(card.difficulty)}>
+											{card.difficulty}
+										</span>
+									</div>
+									<h3 className="text-lg font-semibold">{card.question}</h3>
+									<p className="muted-text leading-7">{card.answer}</p>
+								</div>
+							))}
+						</div>
+					)}
+				</section>
 			</div>
 		</main>
 	);

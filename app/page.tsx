@@ -28,26 +28,70 @@ export default function Home() {
 	}
 
 	return (
-		<main className="flex min-h-screen items-center justify-center">
-			<div className="p-6 border rounded-2xl w-80 space-y-4">
-				<h1 className="text-xl font-semibold text-center">Aesthetic</h1>
+		<main className="auth-shell">
+			<div className="hero-panel w-full max-w-5xl">
+				<div className="grid gap-8 md:grid-cols-[1.2fr_0.8fr] md:items-center">
+					<div className="stack-lg">
+						<div className="brand-mark">
+							<span className="brand-dot" />
+							Aesthetic
+						</div>
+						<div className="stack-md">
+							<h1 className="page-title">Studer smartere med rene, raske flashcards.</h1>
+							<p className="lead-text">
+								Last opp fagmateriale, generer flashcards og hold oversikt over settene dine i ett enkelt grensesnitt.
+							</p>
+						</div>
+						<div className="stats-grid">
+							<div className="stat-card">
+								<span className="stat-label">Fokus</span>
+								<span className="stat-value">Enkel flyt</span>
+							</div>
+							<div className="stat-card">
+								<span className="stat-label">Design</span>
+								<span className="stat-value">Mørk blå</span>
+							</div>
+							<div className="stat-card">
+								<span className="stat-label">Mål</span>
+								<span className="stat-value">Bedre læring</span>
+							</div>
+						</div>
+					</div>
 
-				<input
-					className="w-full border p-3 rounded-xl text-center text-2xl"
-					placeholder="PIN"
-					maxLength={4}
-					value={pin}
-					onChange={(e) => setPin(e.target.value)}
-				/>
+					<div className="surface-panel stack-md">
+						<div className="stack-sm">
+							<h2 className="section-title text-2xl">Logg inn</h2>
+							<p className="muted-text text-sm">
+								Bruk PIN-koden din for å åpne dashboardet.
+							</p>
+						</div>
 
-				{error && <p className="text-red-500 text-sm">{error}</p>}
+						<div className="input-group">
+							<label className="input-label" htmlFor="pin">
+								PIN-kode
+							</label>
+							<input
+								id="pin"
+								className="input-field text-center text-3xl tracking-[0.35em]"
+								placeholder="0000"
+								inputMode="numeric"
+								maxLength={4}
+								value={pin}
+								onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ""))}
+							/>
+						</div>
 
-				<button
-					onClick={handleLogin}
-					className="w-full border rounded-xl p-3"
-				>
-					Logg inn
-				</button>
+						{error ? <p className="error-text">{error}</p> : null}
+
+						<button
+							onClick={handleLogin}
+							className="btn btn-primary w-full"
+							disabled={pin.length !== 4}
+						>
+							Logg inn
+						</button>
+					</div>
+				</div>
 			</div>
 		</main>
 	);

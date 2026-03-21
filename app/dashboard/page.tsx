@@ -38,27 +38,75 @@ export default function Dashboard() {
 	}, []);
 
 	return (
-		<main className="p-6 max-w-2xl mx-auto">
-			<h1 className="text-2xl font-semibold mb-6">Dine sett</h1>
+		<main className="page-shell">
+			<div className="page-container stack-lg">
+				<section className="hero-panel stack-lg">
+					<div className="topbar">
+						<div className="stack-sm">
+							<div className="brand-mark">
+								<span className="brand-dot" />
+								Dashboard
+							</div>
+							<h1 className="section-title">Dine studiesett</h1>
+							<p className="lead-text">
+								Hold oversikt over opplastede filer og åpne settene dine for å generere eller lese flashcards.
+							</p>
+						</div>
 
-			<button
-				onClick={() => router.push("/upload")}
-				className="mb-6 border p-3 rounded-xl"
-			>
-				+ Nytt sett
-			</button>
-
-			<div className="space-y-3">
-				{sets.map((set) => (
-					<div
-						key={set.id}
-						className="border p-4 rounded-xl cursor-pointer"
-						onClick={() => router.push(`/sets/${set.id}`)}
-					>
-						<h2 className="font-medium">{set.title}</h2>
-						<p className="text-sm text-gray-500">{set.subject}</p>
+						<button onClick={() => router.push("/upload")} className="btn btn-primary">
+							+ Nytt sett
+						</button>
 					</div>
-				))}
+
+					<div className="stats-grid">
+						<div className="stat-card">
+							<span className="stat-label">Antall sett</span>
+							<span className="stat-value">{sets.length}</span>
+						</div>
+						<div className="stat-card">
+							<span className="stat-label">Status</span>
+							<span className="stat-value">Klar til studie</span>
+						</div>
+						<div className="stat-card">
+							<span className="stat-label">Neste steg</span>
+							<span className="stat-value">Last opp nytt sett</span>
+						</div>
+					</div>
+				</section>
+
+				<section className="stack-md">
+					<div className="topbar">
+						<h2 className="section-title text-2xl">Oversikt</h2>
+						<span className="pill pill-neutral">
+							{sets.length} {sets.length === 1 ? "sett" : "sett"}
+						</span>
+					</div>
+
+					{sets.length === 0 ? (
+						<div className="empty-panel">
+							<h3 className="text-xl font-semibold">Ingen sett ennå</h3>
+							<p className="muted-text mt-2">
+								Start med å laste opp en PDF- eller DOCX-fil for å generere dine første flashcards.
+							</p>
+						</div>
+					) : (
+						<div className="card-grid">
+							{sets.map((set) => (
+								<div
+									key={set.id}
+									className="card-item card-item--interactive stack-sm"
+									onClick={() => router.push(`/sets/${set.id}`)}
+								>
+									<div className="row-wrap">
+										<span className="pill pill-blue">Studiesett</span>
+									</div>
+									<h3 className="text-xl font-semibold">{set.title}</h3>
+									<p className="muted-text">{set.subject}</p>
+								</div>
+							))}
+						</div>
+					)}
+				</section>
 			</div>
 		</main>
 	);

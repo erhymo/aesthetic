@@ -57,38 +57,82 @@ export default function Upload() {
 	}
 
 	return (
-		<main className="p-6 max-w-xl mx-auto space-y-4">
-			<h1 className="text-2xl font-semibold">Nytt sett</h1>
-			<button
-				className="text-sm text-gray-500 underline"
-				onClick={() => router.back()}
-			>
-				Tilbake
-			</button>
+			<main className="page-shell">
+				<div className="page-container max-w-3xl stack-lg">
+					<section className="hero-panel stack-lg">
+						<div className="topbar">
+							<div className="stack-sm">
+								<div className="brand-mark">
+									<span className="brand-dot" />
+									Nytt sett
+								</div>
+								<h1 className="section-title">Last opp nytt materiale</h1>
+								<p className="lead-text">
+									Gi settet et tydelig navn, velg fag og last opp en PDF- eller DOCX-fil.
+								</p>
+							</div>
 
-			<input
-				className="w-full border p-3 rounded-xl"
-				placeholder="Tittel"
-				value={title}
-				onChange={(e) => setTitle(e.target.value)}
-			/>
+							<button className="btn btn-secondary" onClick={() => router.back()}>
+								Tilbake
+							</button>
+						</div>
 
-			<input
-				className="w-full border p-3 rounded-xl"
-				placeholder="Fag"
-				value={subject}
-				onChange={(e) => setSubject(e.target.value)}
-			/>
+						<div className="surface-panel stack-md">
+							<div className="input-group">
+								<label className="input-label" htmlFor="title">
+									Tittel
+								</label>
+								<input
+									id="title"
+									className="input-field"
+									placeholder="For eksempel: Biologi kapittel 3"
+									value={title}
+									onChange={(e) => setTitle(e.target.value)}
+								/>
+							</div>
 
-			<input
-				type="file"
-				accept=".pdf,.docx"
-				onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-			/>
+							<div className="input-group">
+								<label className="input-label" htmlFor="subject">
+									Fag
+								</label>
+								<input
+									id="subject"
+									className="input-field"
+									placeholder="For eksempel: Naturfag"
+									value={subject}
+									onChange={(e) => setSubject(e.target.value)}
+								/>
+							</div>
 
-			<button onClick={handleUpload} className="border p-3 rounded-xl">
-				Last opp
-			</button>
-		</main>
+							<div className="input-group">
+								<label className="input-label" htmlFor="file">
+									Fil
+								</label>
+								<input
+									id="file"
+									type="file"
+									accept=".pdf,.docx"
+									className="file-input"
+									onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+								/>
+								<p className="muted-text text-sm">
+									Støtter PDF og DOCX. {file ? `Valgt fil: ${file.name}` : "Ingen fil valgt ennå."}
+								</p>
+							</div>
+
+							<div className="divider" />
+
+							<div className="row-wrap">
+								<button onClick={handleUpload} className="btn btn-primary">
+									Last opp
+								</button>
+								<button className="btn btn-secondary" onClick={() => router.push("/dashboard")}>
+									Til dashboard
+								</button>
+							</div>
+						</div>
+					</section>
+				</div>
+			</main>
 	);
 }
