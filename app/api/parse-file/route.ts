@@ -4,12 +4,14 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import {
 	buildFeedbackProfile,
-	chunkText,
 	extractTextFromFileBuffer,
+	getTextExtractionError,
 	generateCardsFromChunk,
+	groupChunksForCards,
 	type Flashcard,
 	type FeedbackSignalCard,
 } from "@/lib/parseFile";
+import { getStoredStudySetFiles } from "@/lib/studySetFiles";
 
 if (!getApps().length) {
 	initializeApp({
@@ -50,10 +52,9 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-		const filePath = typeof setData.filePath === "string" ? setData.filePath : "";
-		const rawFileName = typeof setData.fileName === "string" ? setData.fileName : "";
+			const storedFiles = getStoredStudySetFiles(setData as Record<string, unknown>);
 
-		if (!filePath || !rawFileName) {
+			if (storedFiles.length === 0) {
 			await setRef.update({
 				status: "error",
 				lastError: "Studiesettet mangler filreferanse.",
@@ -73,41 +74,50 @@ export async function POST(req: NextRequest) {
 		}
 
 		await setRef.update({ status: "processing", lastError: null });
-
-		const file = bucket.file(filePath);
-		const [buffer] = await file.download();
 		let text = "";
 
 		try {
-			text = await extractTextFromFileBuffer(buffer, rawFileName);
-		} catch {
-				await setRef.update({ status: "error", lastError: "Filtypen støttes ikke." });
+				const extractedTexts: string[] = [];
+
+				for (const [index, storedFile] of storedFiles.entries()) {
+					const file = bucket.file(storedFile.filePath);
+					const [buffer] = await file.download();
+					const extractedText = await extractTextFromFileBuffer(buffer, storedFile.fileName);
+
+					extractedTexts.push(`Kilde ${index + 1}: ${storedFile.fileName}\n${extractedText.trim()}`);
+				}
+
+				text = extractedTexts.join("\n\n").trim();
+			} catch (error) {
+				const extractionError = getTextExtractionError(error);
+
+				await setRef.update({ status: "error", lastError: extractionError.message });
 			return NextResponse.json(
-					{ error: "Filtypen støttes ikke." },
-				{ status: 400 },
+					{ error: extractionError.message },
+					{ status: extractionError.status },
 			);
 		}
 
 		if (!text || text.trim().length < 100) {
 				await setRef.update({
 					status: "error",
-					lastError: "Det ble hentet ut for lite tekst fra filen.",
+						lastError: "Det ble hentet ut for lite tekst fra materialet.",
 				});
 			return NextResponse.json(
-					{ error: "Det ble hentet ut for lite tekst fra filen." },
+						{ error: "Det ble hentet ut for lite tekst fra materialet." },
 				{ status: 400 },
 			);
 		}
 
-		const chunks = chunkText(text, 4000).slice(0, 4);
+			const chunks = groupChunksForCards(text);
 
 		if (chunks.length === 0) {
 			await setRef.update({
 				status: "error",
-					lastError: "Fant ingen brukbare tekstavsnitt i filen.",
+						lastError: "Fant ingen brukbare tekstavsnitt i materialet.",
 			});
 			return NextResponse.json(
-					{ error: "Fant ingen brukbare tekstavsnitt i filen." },
+						{ error: "Fant ingen brukbare tekstavsnitt i materialet." },
 				{ status: 400 },
 			);
 		}

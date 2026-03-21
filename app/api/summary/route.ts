@@ -4,9 +4,11 @@ import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import {
 	extractTextFromFileBuffer,
+	getTextExtractionError,
 	generateSummaryFromText,
 	type DocumentSummary,
 } from "@/lib/parseFile";
+import { getStoredStudySetFiles } from "@/lib/studySetFiles";
 import { getErrorMessage, withRetry } from "@/lib/transientRetry";
 
 export const runtime = "nodejs";
@@ -84,10 +86,9 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ success: true, cached: true, summary: cachedSummary });
 		}
 
-		const filePath = typeof setData.filePath === "string" ? setData.filePath : "";
-		const rawFileName = typeof setData.fileName === "string" ? setData.fileName : "";
+			const storedFiles = getStoredStudySetFiles(setData as Record<string, unknown>);
 
-		if (!filePath || !rawFileName) {
+			if (storedFiles.length === 0) {
 			await updateSummaryState(setId, {
 				summaryStatus: "error",
 				summaryLastError: "Studiesettet mangler filreferanse.",
@@ -110,33 +111,42 @@ export async function POST(req: NextRequest) {
 			summaryStatus: "processing",
 			summaryLastError: null,
 		});
-
-		const file = bucket.file(filePath);
-		const [buffer] = await withRetry("summary file download", () => file.download());
 		let text = "";
 
 		try {
-			text = await extractTextFromFileBuffer(buffer, rawFileName);
-		} catch {
+				const extractedTexts: string[] = [];
+
+				for (const [index, storedFile] of storedFiles.entries()) {
+					const file = bucket.file(storedFile.filePath);
+					const [buffer] = await withRetry("summary file download", () => file.download());
+					const extractedText = await extractTextFromFileBuffer(buffer, storedFile.fileName);
+
+					extractedTexts.push(`Kilde ${index + 1}: ${storedFile.fileName}\n${extractedText.trim()}`);
+				}
+
+				text = extractedTexts.join("\n\n").trim();
+			} catch (error) {
+				const extractionError = getTextExtractionError(error);
+
 			await updateSummaryState(setId, {
 				summaryStatus: "error",
-				summaryLastError: "Unsupported file type",
+					summaryLastError: extractionError.message,
 			});
 
 			return NextResponse.json(
-				{ error: "Unsupported file type" },
-				{ status: 400 },
+					{ error: extractionError.message },
+					{ status: extractionError.status },
 			);
 		}
 
 		if (!text || text.trim().length < 100) {
 			await updateSummaryState(setId, {
 				summaryStatus: "error",
-				summaryLastError: "Too little text extracted",
+					summaryLastError: "Det ble hentet ut for lite tekst fra materialet.",
 			});
 
 			return NextResponse.json(
-				{ error: "Too little text extracted" },
+					{ error: "Det ble hentet ut for lite tekst fra materialet." },
 				{ status: 400 },
 			);
 		}

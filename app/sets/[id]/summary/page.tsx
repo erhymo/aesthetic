@@ -211,7 +211,7 @@ export default function SummaryPage({
 							</div>
 							<h1 className="section-title">{data.title}</h1>
 							<p className="lead-text">
-								En kort oppsummering laget kun fra teksten i dokumentet du lastet opp.
+									En kort oppsummering laget kun fra teksten i materialet du lastet opp.
 							</p>
 						</div>
 
@@ -244,7 +244,7 @@ export default function SummaryPage({
 					<section className="surface-panel stack-md">
 						<h2 className="text-2xl font-semibold">Lager oppsummering</h2>
 						<p className="muted-text leading-7">
-							Jeg henter teksten fra dokumentet, oppsummerer innholdet og lagrer resultatet på studiesettet.
+								Jeg henter teksten fra materialet, oppsummerer innholdet og lagrer resultatet på studiesettet.
 						</p>
 					</section>
 				) : null}

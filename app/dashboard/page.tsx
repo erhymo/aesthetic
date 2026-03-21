@@ -75,7 +75,7 @@ export default function Dashboard() {
 						<div className="empty-panel">
 							<h3 className="text-xl font-semibold">Ingen sett ennå</h3>
 							<p className="muted-text mt-2">
-								Start med å laste opp en PDF- eller DOCX-fil for å generere dine første flashcards.
+									Start med å laste opp en PDF/DOCX eller bilder av sider for å generere dine første flashcards.
 							</p>
 								<div className="mt-5 flex justify-center">
 									<Link href="/upload" className="btn btn-primary w-full sm:w-auto">

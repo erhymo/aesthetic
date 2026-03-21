@@ -54,6 +54,24 @@ export type DocumentSummary = {
 	takeaway: string;
 };
 
+function getImageMimeType(rawFileName: string) {
+	const fileName = rawFileName.toLowerCase();
+
+	if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+		return "image/jpeg";
+	}
+
+	if (fileName.endsWith(".png")) {
+		return "image/png";
+	}
+
+	if (fileName.endsWith(".webp")) {
+		return "image/webp";
+	}
+
+	return null;
+}
+
 export async function parsePDF(buffer: Buffer) {
 	const parser = new PDFParse({ data: buffer });
 	try {
@@ -69,6 +87,71 @@ export async function parseDOCX(buffer: Buffer) {
 	return result.value;
 }
 
+export async function extractTextFromImageBuffer(buffer: Buffer, rawFileName: string) {
+	const mimeType = getImageMimeType(rawFileName);
+
+	if (!mimeType) {
+		throw new Error("Unsupported image type");
+	}
+
+	const imageUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
+	const response = await client.responses.create({
+		model: "gpt-4.1-mini",
+		input: [
+			{
+				role: "system",
+				content: [
+					{
+						type: "input_text",
+						text:
+							"Du gjør OCR på bilder av trykte tekstsider. Returner kun teksten som står i bildet, i naturlig leserekkefølge. " +
+							"Ikke oppsummer, ikke forklar, ikke legg til noe, og ikke bruk markdown.",
+					},
+				],
+			},
+			{
+				role: "user",
+				content: [
+					{
+						type: "input_text",
+						text:
+							"Les all tydelig trykt tekst i bildet. Behold avsnitt, overskrifter og punktlister når det er mulig. " +
+							"Hvis bildet ikke inneholder nok lesbar tekst til å brukes, returner en tom streng.",
+					},
+					{
+						type: "input_image",
+						image_url: imageUrl,
+						detail: "high",
+					},
+				],
+			},
+		],
+		text: {
+			format: {
+				type: "json_schema",
+				name: "ocr_result",
+				schema: {
+					type: "object",
+					additionalProperties: false,
+					properties: {
+						text: { type: "string" },
+					},
+					required: ["text"],
+				},
+			},
+		},
+	});
+
+	const parsed = JSON.parse(response.output_text) as { text?: string };
+	const extractedText = typeof parsed.text === "string" ? parsed.text.trim() : "";
+
+	if (!extractedText) {
+		throw new Error("No readable text found in image");
+	}
+
+	return extractedText;
+}
+
 export async function extractTextFromFileBuffer(buffer: Buffer, rawFileName: string) {
 	const fileName = rawFileName.toLowerCase();
 
@@ -80,7 +163,47 @@ export async function extractTextFromFileBuffer(buffer: Buffer, rawFileName: str
 		return parseDOCX(buffer);
 	}
 
+	if (getImageMimeType(fileName)) {
+		return extractTextFromImageBuffer(buffer, rawFileName);
+	}
+
 	throw new Error("Unsupported file type");
+}
+
+export function getTextExtractionError(error: unknown) {
+	const rawMessage = error instanceof Error && error.message.trim() ? error.message.trim() : "";
+	const normalizedMessage = rawMessage.toLowerCase();
+
+	if (
+		rawMessage === "Unsupported file type" ||
+		rawMessage === "Unsupported image type" ||
+		normalizedMessage.includes("unsupported image") ||
+		normalizedMessage.includes("unsupported file") ||
+		normalizedMessage.includes("invalid image format")
+	) {
+		return {
+			message: "Filtypen støttes ikke. Bruk PDF, DOCX, JPG, PNG eller WEBP.",
+			status: 400,
+		};
+	}
+
+	if (
+		rawMessage === "No readable text found in image" ||
+		normalizedMessage.includes("no readable text") ||
+		normalizedMessage.includes("invalid_image") ||
+		normalizedMessage.includes("image_parse_error") ||
+		normalizedMessage.includes("empty_image_file")
+	) {
+		return {
+			message: "Fant ikke nok lesbar tekst i bildet. Prøv et skarpere bilde med bedre lys.",
+			status: 400,
+		};
+	}
+
+	return {
+		message: rawMessage || "Kunne ikke lese teksten fra det opplastede materialet.",
+		status: 500,
+	};
 }
 
 export function chunkText(text: string, maxChars = 4000) {
@@ -107,6 +230,23 @@ export function chunkText(text: string, maxChars = 4000) {
 	}
 
 	return parts.filter(Boolean);
+}
+
+export function groupChunksForCards(text: string) {
+	const chunks = chunkText(text, 4000);
+
+	if (chunks.length <= 4) {
+		return chunks;
+	}
+
+	const groupSize = Math.ceil(chunks.length / 4);
+	const grouped: string[] = [];
+
+	for (let index = 0; index < chunks.length; index += groupSize) {
+		grouped.push(chunks.slice(index, index + groupSize).join("\n\n"));
+	}
+
+	return grouped;
 }
 
 function normalizeWhitespace(value: string) {

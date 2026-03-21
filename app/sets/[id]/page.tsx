@@ -334,7 +334,7 @@ export default function StudySetPage({
 								</div>
 								<h2 className="text-2xl font-semibold">Egen oppsummeringsmodus</h2>
 								<p className="muted-text leading-7">
-									Navigasjonen er klar. I neste steg bygger jeg den faktiske oppsummeringen med streng kildekontroll fra dokumentet ditt.
+									Navigasjonen er klar. I neste steg bygger jeg den faktiske oppsummeringen med streng kildekontroll fra materialet ditt.
 								</p>
 							</div>
 
