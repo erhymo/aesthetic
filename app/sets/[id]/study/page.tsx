@@ -223,6 +223,62 @@ export default function StudyModePage({
 
 	const currentCard = activeCards[currentIndex];
 	const feedbackText = getFeedbackText(currentCard.feedback ?? null);
+	const isFirstCard = currentIndex === 0;
+	const isLastCard = currentIndex >= activeCards.length - 1;
+
+	function renderCardFooter() {
+		return (
+			<div className="study-flip-card__footer">
+				<p className="muted-text text-sm">{feedbackText}</p>
+				<div className="study-flip-card__actions">
+					<button
+						type="button"
+						className="btn btn-secondary w-full"
+						onClick={() => setCurrentIndex((index) => Math.max(index - 1, 0))}
+						disabled={isFirstCard}
+					>
+						Forrige
+					</button>
+					<button
+						type="button"
+						className="btn btn-primary w-full"
+						onClick={() => setCurrentIndex((index) => Math.min(index + 1, activeCards.length - 1))}
+						disabled={isLastCard}
+					>
+						Neste
+					</button>
+					<button
+						type="button"
+						className={`btn w-full text-lg ${
+							currentCard.feedback === "up"
+								? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
+								: "btn-secondary"
+						}`}
+						onClick={() => void handleFeedback("up")}
+						disabled={savingFeedback}
+						aria-pressed={currentCard.feedback === "up"}
+					>
+						<span aria-hidden="true">👍</span>
+						Nyttig
+					</button>
+					<button
+						type="button"
+						className={`btn w-full text-lg ${
+							currentCard.feedback === "down"
+								? "border-rose-400/40 bg-rose-500/15 text-rose-100"
+								: "btn-secondary"
+						}`}
+						onClick={() => void handleFeedback("down")}
+						disabled={savingFeedback}
+						aria-pressed={currentCard.feedback === "down"}
+					>
+						<span aria-hidden="true">👎</span>
+						Mindre nyttig
+					</button>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<main className="page-shell">
@@ -257,82 +313,42 @@ export default function StudyModePage({
 				</section>
 
 				<section className="surface-panel stack-lg">
-					<button
-						type="button"
-						onClick={() => setFlipped((current) => !current)}
-						className={`study-flip-card ${flipped ? "study-flip-card--flipped" : ""}`}
-					>
-						<span className="study-flip-card__inner">
-							<span className="study-flip-card__face study-flip-card__face--front">
-								<span className="pill pill-blue">Spørsmål</span>
-								<span className="text-2xl font-semibold leading-9">{currentCard.question}</span>
-								<span className="muted-text text-sm">Trykk for svar.</span>
-							</span>
-							<span className="study-flip-card__face study-flip-card__face--back">
-									<span className="flex w-full flex-col gap-4 text-left">
-										<span className="pill pill-green">Svar</span>
-										<span className="text-2xl font-semibold leading-9">{currentCard.answer}</span>
-										<span className="muted-text text-sm">Trykk for spørsmål.</span>
-									</span>
-							</span>
-						</span>
-					</button>
+						<div className={`study-flip-card ${flipped ? "study-flip-card--flipped" : ""}`}>
+							<div className="study-flip-card__inner">
+								<div className="study-flip-card__face study-flip-card__face--front">
+									<button
+										type="button"
+										onClick={() => setFlipped((current) => !current)}
+										className="study-flip-card__content"
+									>
+										<span className="pill pill-blue">Spørsmål</span>
+										<span className="text-2xl font-semibold leading-9">{currentCard.question}</span>
+										<span className="muted-text text-sm">Trykk for svar.</span>
+									</button>
+									{renderCardFooter()}
+								</div>
+								<div className="study-flip-card__face study-flip-card__face--back">
+									<button
+										type="button"
+										onClick={() => setFlipped((current) => !current)}
+										className="study-flip-card__content"
+									>
+										<span className="flex w-full flex-col gap-4 text-left">
+											<span className="pill pill-green">Svar</span>
+											<span className="text-2xl font-semibold leading-9">{currentCard.answer}</span>
+											<span className="muted-text text-sm">Trykk for spørsmål.</span>
+										</span>
+									</button>
+									{renderCardFooter()}
+								</div>
+							</div>
+						</div>
 
 						{feedbackError ? (
 							<div className="rounded-2xl border border-rose-400/25 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
 								{feedbackError}
 							</div>
 						) : null}
-
-						<div className="grid gap-4 lg:grid-cols-[1fr_auto_auto_auto_auto] lg:items-center">
-							<div className="stack-sm">
-								<p className="muted-text text-sm">{feedbackText}</p>
-							</div>
-							<button
-								type="button"
-								className={`btn w-full sm:w-auto text-lg ${
-									currentCard.feedback === "up"
-										? "border-emerald-400/40 bg-emerald-500/15 text-emerald-100"
-										: "btn-secondary"
-								}`}
-								onClick={() => void handleFeedback("up")}
-								disabled={savingFeedback}
-								aria-pressed={currentCard.feedback === "up"}
-							>
-								<span aria-hidden="true">👍</span>
-								Nyttig
-							</button>
-							<button
-								type="button"
-								className={`btn w-full sm:w-auto text-lg ${
-									currentCard.feedback === "down"
-										? "border-rose-400/40 bg-rose-500/15 text-rose-100"
-										: "btn-secondary"
-								}`}
-								onClick={() => void handleFeedback("down")}
-								disabled={savingFeedback}
-								aria-pressed={currentCard.feedback === "down"}
-							>
-								<span aria-hidden="true">👎</span>
-								Mindre nyttig
-							</button>
-						<button
-							type="button"
-							className="btn btn-secondary w-full sm:w-auto"
-							onClick={() => setCurrentIndex((index) => Math.max(index - 1, 0))}
-							disabled={currentIndex === 0}
-						>
-							Forrige
-						</button>
-						<button
-							type="button"
-							className="btn btn-primary w-full sm:w-auto"
-							onClick={() => setCurrentIndex((index) => Math.min(index + 1, activeCards.length - 1))}
-							disabled={currentIndex >= activeCards.length - 1}
-						>
-							Neste
-						</button>
-					</div>
 				</section>
 			</div>
 		</main>
