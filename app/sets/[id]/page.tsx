@@ -29,6 +29,8 @@ type StudySet = {
 	lastError?: string | null;
 };
 
+type StudyOrder = "fixed" | "random";
+
 function getStatusClass(status: string) {
 	if (status === "error") return "pill pill-rose";
 	if (status === "completed" || status === "ready") return "pill pill-green";
@@ -92,6 +94,7 @@ export default function StudySetPage({
 	const [processing, setProcessing] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [selectedCardCount, setSelectedCardCount] = useState(0);
+	const [studyOrder, setStudyOrder] = useState<StudyOrder>("random");
 
 	const loadSet = useCallback(async () => {
 		setLoading(true);
@@ -257,7 +260,19 @@ export default function StudySetPage({
 			return;
 		}
 
-		router.push(`/sets/${id}/study?count=${selectedCount}`);
+		const params = new URLSearchParams({
+			count: String(selectedCount),
+			order: studyOrder,
+		});
+
+		if (studyOrder === "random") {
+			params.set(
+				"seed",
+				globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+			);
+		}
+
+		router.push(`/sets/${id}/study?${params.toString()}`);
 	}
 
 	return (
@@ -372,6 +387,29 @@ export default function StudySetPage({
 										</select>
 									</div>
 
+								<div className="input-group max-w-md">
+									<label className="input-label">Rekkefølge</label>
+									<div className="row-wrap">
+										<button
+											type="button"
+											onClick={() => setStudyOrder("random")}
+											className={studyOrder === "random" ? "btn btn-primary" : "btn btn-secondary"}
+										>
+											Tilfeldig rekkefølge
+										</button>
+										<button
+											type="button"
+											onClick={() => setStudyOrder("fixed")}
+											className={studyOrder === "fixed" ? "btn btn-primary" : "btn btn-secondary"}
+										>
+											Fast rekkefølge
+										</button>
+									</div>
+									<p className="muted-text text-sm">
+										Tilfeldig stokker kortene for denne økten. Fast følger original rekkefølge.
+									</p>
+								</div>
+
 									<div className="row-wrap">
 										<button
 											type="button"
@@ -379,7 +417,7 @@ export default function StudySetPage({
 											disabled={isGenerating}
 											className="btn btn-primary w-full sm:w-auto"
 										>
-											Start med {selectedCount} kort
+										Start med {selectedCount} kort
 										</button>
 									</div>
 								</>

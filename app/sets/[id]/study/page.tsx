@@ -30,6 +30,8 @@ type StudySet = {
 	status: string;
 };
 
+type StudyOrder = "fixed" | "random";
+
 function getDifficultyLabel(difficulty: Card["difficulty"]) {
 	if (difficulty === "easy") return "Lett";
 	if (difficulty === "hard") return "Vanskelig";
@@ -48,12 +50,46 @@ function getFeedbackText(feedback: CardFeedback) {
 	return null;
 }
 
+function getSingleSearchParam(value: string | string[] | undefined) {
+	return Array.isArray(value) ? value[0] : value;
+}
+
+function hashString(input: string) {
+	let hash = 2166136261;
+
+	for (let index = 0; index < input.length; index += 1) {
+		hash ^= input.charCodeAt(index);
+		hash = Math.imul(hash, 16777619);
+	}
+
+	return hash >>> 0;
+}
+
+function getOrderedCards(cards: Card[], order: StudyOrder, seed: string | null) {
+	if (order !== "random") {
+		return cards;
+	}
+
+	const effectiveSeed = seed?.trim() || "default";
+
+	return [...cards].sort((left, right) => {
+		const leftWeight = hashString(`${effectiveSeed}:${left.id}`);
+		const rightWeight = hashString(`${effectiveSeed}:${right.id}`);
+
+		if (leftWeight !== rightWeight) {
+			return leftWeight - rightWeight;
+		}
+
+		return left.id.localeCompare(right.id);
+	});
+}
+
 export default function StudyModePage({
 	params,
 	searchParams,
 }: {
 	params: Promise<{ id: string }>;
-	searchParams: Promise<{ count?: string | string[] }>;
+		searchParams: Promise<{ count?: string | string[]; order?: string | string[]; seed?: string | string[] }>;
 }) {
 	const { id } = use(params);
 	const resolvedSearchParams = use(searchParams);
@@ -67,11 +103,12 @@ export default function StudyModePage({
 	const [feedbackError, setFeedbackError] = useState<string | null>(null);
 	const [savingFeedback, setSavingFeedback] = useState(false);
 
-	const requestedCount = Array.isArray(resolvedSearchParams.count)
-		? resolvedSearchParams.count[0]
-		: resolvedSearchParams.count;
+	const requestedCount = getSingleSearchParam(resolvedSearchParams.count);
+	const requestedOrder = getSingleSearchParam(resolvedSearchParams.order);
+	const requestedSeed = getSingleSearchParam(resolvedSearchParams.seed);
 
 	const parsedCount = Number.parseInt(requestedCount ?? "", 10);
+	const studyOrder: StudyOrder = requestedOrder === "fixed" ? "fixed" : "random";
 
 	const loadSet = useCallback(async () => {
 		setLoading(true);
@@ -113,12 +150,14 @@ export default function StudyModePage({
 	}, [loadSet]);
 
 	const activeCards = useMemo(() => {
+		const orderedCards = getOrderedCards(cards, studyOrder, requestedSeed ?? null);
+
 		if (!Number.isFinite(parsedCount) || parsedCount <= 0) {
-			return cards;
+			return orderedCards;
 		}
 
-		return cards.slice(0, Math.min(cards.length, parsedCount));
-	}, [cards, parsedCount]);
+		return orderedCards.slice(0, Math.min(orderedCards.length, parsedCount));
+	}, [cards, parsedCount, requestedSeed, studyOrder]);
 
 	useEffect(() => {
 		setCurrentIndex((previousIndex) => {
@@ -306,6 +345,9 @@ export default function StudyModePage({
 						<span className="pill pill-blue">
 							Kort {currentIndex + 1} av {activeCards.length}
 						</span>
+							<span className="pill pill-neutral">
+								{studyOrder === "random" ? "Tilfeldig rekkefølge" : "Fast rekkefølge"}
+							</span>
 						<span className={getDifficultyClass(currentCard.difficulty)}>
 							{getDifficultyLabel(currentCard.difficulty)}
 						</span>
