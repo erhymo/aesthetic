@@ -337,6 +337,17 @@ a {
   background: rgba(30, 41, 59, 0.58);
 }
 
+.btn-danger {
+  border-color: rgba(251, 113, 133, 0.28);
+  background: rgba(127, 29, 29, 0.35);
+  color: #ffe4e6;
+}
+
+.btn-danger:hover {
+  border-color: rgba(251, 113, 133, 0.42);
+  background: rgba(159, 18, 57, 0.42);
+}
+
 .input-group {
   display: flex;
   flex-direction: column;

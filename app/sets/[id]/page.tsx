@@ -90,6 +90,7 @@ export default function StudySetPage({
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [processing, setProcessing] = useState(false);
+	const [deleting, setDeleting] = useState(false);
 	const [selectedCardCount, setSelectedCardCount] = useState(0);
 
 	const loadSet = useCallback(async () => {
@@ -192,6 +193,57 @@ export default function StudySetPage({
 		}
 	}
 
+	async function handleDelete() {
+		if (deleting) {
+			return;
+		}
+
+		const userId = localStorage.getItem("userId");
+
+		if (!userId) {
+			alert("Fant ikke bruker på denne enheten. Prøv å laste siden på nytt.");
+			return;
+		}
+
+		const confirmed = window.confirm(
+			`Er du sikker på at du vil slette studiesettet “${data?.title ?? "dette studiesettet"}”? Dette kan ikke angres.`,
+		);
+
+		if (!confirmed) {
+			return;
+		}
+
+		try {
+			setDeleting(true);
+
+			const res = await fetch("/api/delete-study-set", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ setId: id, userId }),
+			});
+
+			const rawBody = await res.text();
+			const parsed = parseProcessResponse(rawBody);
+			const responseError =
+				typeof parsed?.error === "string" && parsed.error.trim().length > 0
+					? parsed.error
+					: rawBody.trim() || "Kunne ikke slette studiesettet.";
+
+			if (!res.ok) {
+				alert(responseError);
+				return;
+			}
+
+			router.push("/dashboard");
+			router.refresh();
+		} catch (deleteError) {
+			console.error(deleteError);
+			alert("Noe gikk galt under sletting. Prøv igjen om litt.");
+		} finally {
+			setDeleting(false);
+		}
+	}
+
 	if (loading) return <main className="page-shell"><div className="page-container"><div className="empty-panel">Laster...</div></div></main>;
 	if (error) return <main className="page-shell"><div className="page-container"><div className="empty-panel">{error}</div></div></main>;
 	if (!data) return <main className="page-shell"><div className="page-container"><div className="empty-panel">Fant ikke studiesettet.</div></div></main>;
@@ -228,9 +280,17 @@ export default function StudySetPage({
 								<Link href="/dashboard" className="btn btn-secondary w-full sm:w-auto">
 									Til dashboard
 								</Link>
+								<button
+									type="button"
+									onClick={() => void handleDelete()}
+									disabled={deleting}
+									className="btn btn-danger w-full sm:w-auto"
+								>
+									{deleting ? "Sletter..." : "Slett studiesett"}
+								</button>
 							<button
 								onClick={handleGenerate}
-								disabled={isGenerating}
+									disabled={isGenerating || deleting}
 									className="btn btn-primary w-full sm:w-auto"
 							>
 								{isGenerating ? "Genererer..." : "Generer flashcards"}

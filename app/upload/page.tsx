@@ -48,6 +48,14 @@ export default function Upload() {
 	const primaryFile = files[0] ?? null;
 	const isImageMode = uploadMode === "images";
 
+	function handleBack() {
+		if (uploading) {
+			return;
+		}
+
+		router.push("/dashboard");
+	}
+
 	function handleModeChange(nextMode: UploadMode) {
 		if (uploading) {
 			return;
@@ -168,7 +176,7 @@ export default function Upload() {
 								</p>
 							</div>
 
-						<button className="btn btn-secondary" onClick={() => router.back()} disabled={uploading}>
+						<button className="btn btn-secondary" onClick={handleBack} disabled={uploading}>
 								Tilbake
 							</button>
 						</div>
