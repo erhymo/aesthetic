@@ -75,6 +75,24 @@ function hasMeaningfulExtractedText(text: string) {
 	return normalized.length >= 120 || letterCount >= 40;
 }
 
+function parseStructuredJsonOutput<T>(
+	response: { output_text?: string | null },
+	emptyMessage: string,
+	invalidMessage: string,
+) {
+	const outputText = typeof response.output_text === "string" ? response.output_text.trim() : "";
+
+	if (!outputText) {
+		throw new Error(emptyMessage);
+	}
+
+	try {
+		return JSON.parse(outputText) as T;
+	} catch {
+		throw new Error(invalidMessage);
+	}
+}
+
 async function extractTextFromImageUrl(imageUrl: string) {
 	const response = await client.responses.create({
 		model: "gpt-4.1-mini",
@@ -123,7 +141,11 @@ async function extractTextFromImageUrl(imageUrl: string) {
 		},
 	});
 
-	const parsed = JSON.parse(response.output_text) as { text?: string };
+	const parsed = parseStructuredJsonOutput<{ text?: string }>(
+		response,
+		"OCR returnerte ikke noe lesbart tekstsvar.",
+		"Kunne ikke tolke OCR-svaret.",
+	);
 	return typeof parsed.text === "string" ? normalizeExtractedText(parsed.text) : "";
 }
 
@@ -216,7 +238,7 @@ export async function parsePDF(buffer: Buffer) {
 
 export async function parseDOCX(buffer: Buffer) {
 	const result = await mammoth.extractRawText({ buffer });
-	return result.value;
+	return normalizeExtractedText(result.value);
 }
 
 export async function extractTextFromImageBuffer(buffer: Buffer, rawFileName: string) {
@@ -303,6 +325,20 @@ export function getTextExtractionError(error: unknown) {
 	) {
 		return {
 			message: "Fant ikke nok lesbar tekst i bildet. Prøv et skarpere bilde med bedre lys.",
+			status: 400,
+		};
+	}
+
+	if (
+		normalizedMessage.includes("central directory") ||
+		normalizedMessage.includes("corrupted zip") ||
+		normalizedMessage.includes("unsupported zip") ||
+		normalizedMessage.includes("zip file") ||
+		normalizedMessage.includes("end of central directory")
+	) {
+		return {
+			message:
+				"DOCX-filen kunne ikke leses skikkelig. Prøv å lagre den på nytt som en vanlig .docx-fil og last opp igjen.",
 			status: 400,
 		};
 	}
@@ -655,9 +691,13 @@ async function summarizeSegment(segment: string) {
 		},
 	});
 
-	const parsed = JSON.parse(response.output_text) as { bullets: string[] };
+	const parsed = parseStructuredJsonOutput<{ bullets?: unknown }>(
+		response,
+		"Oppsummeringsgeneratoren returnerte ikke noe svar.",
+		"Kunne ikke tolke svaret fra oppsummeringsgeneratoren.",
+	);
 
-	return parsed.bullets
+	return (Array.isArray(parsed.bullets) ? parsed.bullets : [])
 		.map((bullet) => bullet.trim())
 		.filter(Boolean)
 		.slice(0, 4);
@@ -743,7 +783,11 @@ export async function generateCardsFromChunk(
 		},
 	});
 
-	const parsed = JSON.parse(response.output_text) as { cards?: unknown };
+	const parsed = parseStructuredJsonOutput<{ cards?: unknown }>(
+		response,
+		"Kortgeneratoren returnerte ikke noe svar.",
+		"Kunne ikke tolke svaret fra kortgeneratoren.",
+	);
 	return normalizeGeneratedFlashcards(Array.isArray(parsed.cards) ? parsed.cards : [], chunk);
 }
 
@@ -814,7 +858,11 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 		},
 	});
 
-	const parsed = JSON.parse(response.output_text) as DocumentSummary;
+	const parsed = parseStructuredJsonOutput<DocumentSummary>(
+		response,
+		"Oppsummeringsgeneratoren returnerte ikke noe svar.",
+		"Kunne ikke tolke svaret fra oppsummeringsgeneratoren.",
+	);
 
 	return {
 		title: parsed.title.trim(),
