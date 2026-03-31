@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { getApiResponseErrorMessage, parseApiJson } from "@/lib/apiResponse";
+import { fetchClientSession } from "@/lib/clientSession";
 import { db } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 
 type SummaryState = {
@@ -18,6 +20,7 @@ type SummaryState = {
 };
 
 type StudySet = {
+	userId?: string;
 	title: string;
 	subject: string;
 	fileName?: string;
@@ -54,17 +57,50 @@ export default function SummaryPage({
 	params: Promise<{ id: string }>;
 }) {
 	const { id } = use(params);
+	const router = useRouter();
 	const [data, setData] = useState<StudySet | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [generating, setGenerating] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [autoRequested, setAutoRequested] = useState(false);
 
+	const ensureSession = useCallback(async () => {
+		try {
+			const session = await fetchClientSession();
+
+			if (session.unauthorized) {
+				setError("Du må logge inn på nytt.");
+				setData(null);
+				router.replace("/");
+				return null;
+			}
+
+			if (session.error || !session.userId) {
+				setError(session.error || "Kunne ikke bekrefte innloggingen din.");
+				setData(null);
+				return null;
+			}
+
+			return session.userId;
+		} catch (sessionError) {
+			console.error(sessionError);
+			setError("Kunne ikke bekrefte innloggingen din.");
+			setData(null);
+			return null;
+		}
+	}, [router]);
+
 	const loadSet = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 
 		try {
+			const sessionUserId = await ensureSession();
+
+			if (!sessionUserId) {
+				return null;
+			}
+
 			const snap = await getDoc(doc(db, "studySets", id));
 
 			if (!snap.exists()) {
@@ -72,18 +108,26 @@ export default function SummaryPage({
 					return null;
 			}
 
-				const studySetData = snap.data() as StudySet;
-				setData(studySetData);
-				return studySetData;
+			const studySetData = snap.data() as StudySet;
+
+			if (!studySetData.userId || studySetData.userId !== sessionUserId) {
+				setError("Du har ikke tilgang til dette studiesettet.");
+				setData(null);
+				router.replace("/dashboard");
+				return null;
+			}
+
+			setData(studySetData);
+			return studySetData;
 		} catch (loadError) {
 			console.error(loadError);
 			setError("Kunne ikke laste oppsummeringen.");
 			setData(null);
-				return null;
+			return null;
 		} finally {
 			setLoading(false);
 		}
-	}, [id]);
+	}, [ensureSession, id, router]);
 
 	useEffect(() => {
 		void loadSet();
@@ -116,6 +160,12 @@ export default function SummaryPage({
 				setGenerating(true);
 				setError(null);
 
+					const sessionUserId = await ensureSession();
+
+					if (!sessionUserId) {
+						return;
+					}
+
 				const response = await fetch("/api/summary", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
@@ -130,6 +180,18 @@ export default function SummaryPage({
 				);
 
 				if (!response.ok) {
+						if (response.status === 401) {
+							setError("Økten din har gått ut. Logg inn på nytt.");
+							router.replace("/");
+							return;
+						}
+
+						if (response.status === 403) {
+							setError("Du har ikke tilgang til dette studiesettet.");
+							router.replace("/dashboard");
+							return;
+						}
+
 					const refreshedSet = await loadSet();
 					setError(refreshedSet?.summaryLastError?.trim() || json?.error?.trim() || responseError);
 					return;
@@ -143,7 +205,7 @@ export default function SummaryPage({
 				setGenerating(false);
 			}
 		},
-		[generating, id, loadSet],
+		[ensureSession, generating, id, loadSet, router],
 	);
 
 	useEffect(() => {

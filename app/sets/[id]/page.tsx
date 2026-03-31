@@ -4,6 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
 import { getApiResponseErrorMessage, parseApiJson } from "@/lib/apiResponse";
+import { fetchClientSession } from "@/lib/clientSession";
 import {
 	collection,
 	doc,
@@ -22,6 +23,7 @@ type Card = {
 };
 
 type StudySet = {
+	userId?: string;
 	title: string;
 	subject: string;
 	status: string;
@@ -81,11 +83,46 @@ export default function StudySetPage({
 	const [selectedCardCount, setSelectedCardCount] = useState(0);
 	const [studyOrder, setStudyOrder] = useState<StudyOrder>("random");
 
+	const ensureSession = useCallback(async () => {
+		try {
+			const session = await fetchClientSession();
+
+			if (session.unauthorized) {
+				setError("Du må logge inn på nytt.");
+				setData(null);
+				setCards([]);
+				router.replace("/");
+				return null;
+			}
+
+			if (session.error || !session.userId) {
+				setError(session.error || "Kunne ikke bekrefte innloggingen din.");
+				setData(null);
+				setCards([]);
+				return null;
+			}
+
+			return session.userId;
+		} catch (sessionError) {
+			console.error(sessionError);
+			setError("Kunne ikke bekrefte innloggingen din.");
+			setData(null);
+			setCards([]);
+			return null;
+		}
+	}, [router]);
+
 	const loadSet = useCallback(async () => {
 		setLoading(true);
 		setError(null);
 
 		try {
+			const sessionUserId = await ensureSession();
+
+			if (!sessionUserId) {
+				return null;
+			}
+
 			const snap = await getDoc(doc(db, "studySets", id));
 
 			if (!snap.exists()) {
@@ -95,6 +132,15 @@ export default function StudySetPage({
 			}
 
 			const studySetData = snap.data() as StudySet;
+
+			if (!studySetData.userId || studySetData.userId !== sessionUserId) {
+				setError("Du har ikke tilgang til dette studiesettet.");
+				setData(null);
+				setCards([]);
+				router.replace("/dashboard");
+				return null;
+			}
+
 			setData(studySetData);
 
 			const cardsSnap = await getDocs(
@@ -117,7 +163,7 @@ export default function StudySetPage({
 		} finally {
 			setLoading(false);
 		}
-	}, [id]);
+	}, [ensureSession, id, router]);
 
 	useEffect(() => {
 		void loadSet();
@@ -148,6 +194,12 @@ export default function StudySetPage({
 		try {
 			setProcessing(true);
 
+			const sessionUserId = await ensureSession();
+
+			if (!sessionUserId) {
+				return;
+			}
+
 			const res = await fetch("/api/process", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -165,6 +217,18 @@ export default function StudySetPage({
 				);
 
 			if (!res.ok) {
+				if (res.status === 401) {
+					alert("Økten din har gått ut. Logg inn på nytt.");
+					router.replace("/");
+					return;
+				}
+
+				if (res.status === 403) {
+					alert("Du har ikke tilgang til dette studiesettet.");
+					router.replace("/dashboard");
+					return;
+				}
+
 				const refreshedSet = await loadSet();
 				alert(
 					refreshedSet?.lastError?.trim() ||
@@ -203,6 +267,12 @@ export default function StudySetPage({
 		try {
 			setDeleting(true);
 
+			const sessionUserId = await ensureSession();
+
+			if (!sessionUserId) {
+				return;
+			}
+
 			const res = await fetch("/api/delete-study-set", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -217,6 +287,18 @@ export default function StudySetPage({
 				);
 
 			if (!res.ok) {
+					if (res.status === 401) {
+						alert("Økten din har gått ut. Logg inn på nytt.");
+						router.replace("/");
+						return;
+					}
+
+					if (res.status === 403) {
+						alert("Du har ikke tilgang til dette studiesettet.");
+						router.replace("/dashboard");
+						return;
+					}
+
 					alert(parsed?.error?.trim() || responseError);
 				return;
 			}

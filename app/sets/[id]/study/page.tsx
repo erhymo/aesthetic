@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
+import { fetchClientSession } from "@/lib/clientSession";
 import {
 	collection,
 	doc,
@@ -25,6 +26,7 @@ type Card = {
 };
 
 type StudySet = {
+	userId?: string;
 	title: string;
 	subject: string;
 	status: string;
@@ -110,11 +112,46 @@ export default function StudyModePage({
 	const parsedCount = Number.parseInt(requestedCount ?? "", 10);
 	const studyOrder: StudyOrder = requestedOrder === "fixed" ? "fixed" : "random";
 
+	const ensureSession = useCallback(async () => {
+		try {
+			const session = await fetchClientSession();
+
+			if (session.unauthorized) {
+				setLoadError("Du må logge inn på nytt.");
+				setData(null);
+				setCards([]);
+				router.replace("/");
+				return null;
+			}
+
+			if (session.error || !session.userId) {
+				setLoadError(session.error || "Kunne ikke bekrefte innloggingen din.");
+				setData(null);
+				setCards([]);
+				return null;
+			}
+
+			return session.userId;
+		} catch (sessionError) {
+			console.error(sessionError);
+			setLoadError("Kunne ikke bekrefte innloggingen din.");
+			setData(null);
+			setCards([]);
+			return null;
+		}
+	}, [router]);
+
 	const loadSet = useCallback(async () => {
 		setLoading(true);
 		setLoadError(null);
 
 		try {
+			const sessionUserId = await ensureSession();
+
+			if (!sessionUserId) {
+				return;
+			}
+
 			const snap = await getDoc(doc(db, "studySets", id));
 
 			if (!snap.exists()) {
@@ -123,7 +160,17 @@ export default function StudyModePage({
 				return;
 			}
 
-			setData(snap.data() as StudySet);
+			const studySetData = snap.data() as StudySet;
+
+			if (!studySetData.userId || studySetData.userId !== sessionUserId) {
+				setLoadError("Du har ikke tilgang til dette studiesettet.");
+				setData(null);
+				setCards([]);
+				router.replace("/dashboard");
+				return;
+			}
+
+			setData(studySetData);
 
 			const cardsSnap = await getDocs(
 				query(collection(db, "studySets", id, "cards"), orderBy("createdAt", "asc")),
@@ -143,7 +190,7 @@ export default function StudyModePage({
 		} finally {
 			setLoading(false);
 		}
-	}, [id]);
+	}, [ensureSession, id, router]);
 
 	useEffect(() => {
 		void loadSet();
