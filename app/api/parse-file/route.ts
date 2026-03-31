@@ -122,6 +122,8 @@ export async function POST(req: NextRequest) {
 				return NextResponse.json({ error: "Mangler studiesett-id." }, { status: 400 });
 		}
 
+		const currentSetId = setId;
+
 			const userId = await getAuthenticatedUserId();
 
 			if (!userId) {
@@ -285,21 +287,28 @@ export async function POST(req: NextRequest) {
 			});
 
 		const feedbackProfile = buildFeedbackProfile(feedbackSignalCards);
+			logProcessEvent(currentSetId, "generation_started", {
+				chunkCount: chunks.length,
+			});
 
-		const allCards: Flashcard[] = [];
+			const generatedChunks = await Promise.all(
+				chunks.map(async (chunk, index) => {
+					const chunkStartedAt = Date.now();
+					const cards = await generateCardsFromChunk(chunk, feedbackProfile);
 
-			for (const [index, chunk] of chunks.entries()) {
-				const chunkStartedAt = Date.now();
-			const cards = await generateCardsFromChunk(chunk, feedbackProfile);
-			allCards.push(...cards);
-				logProcessEvent(setId, "chunk_generated", {
-					chunkIndex: index + 1,
-					chunkCount: chunks.length,
-					chunkLength: chunk.length,
-					generatedCardCount: cards.length,
-					durationMs: Date.now() - chunkStartedAt,
-				});
-		}
+					logProcessEvent(currentSetId, "chunk_generated", {
+						chunkIndex: index + 1,
+						chunkCount: chunks.length,
+						chunkLength: chunk.length,
+						generatedCardCount: cards.length,
+						durationMs: Date.now() - chunkStartedAt,
+					});
+
+					return cards;
+				}),
+			);
+
+			const allCards: Flashcard[] = generatedChunks.flat();
 
 		const deduped = allCards.filter((card, index, arr) => {
 			const key = `${card.question}__${card.answer}`.toLowerCase().trim();

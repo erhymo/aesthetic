@@ -35,7 +35,6 @@ export default function Home() {
 				return;
 			}
 
-			localStorage.setItem("userId", json.userId);
 			router.push("/dashboard");
 			router.refresh();
 		} catch (loginError) {

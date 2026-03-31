@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { getApiResponseErrorMessage, parseApiJson } from "@/lib/apiResponse";
 import { db } from "@/lib/firebase";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
@@ -13,28 +15,76 @@ type StudySet = {
 
 export default function Dashboard() {
 	const [sets, setSets] = useState<StudySet[]>([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
+	const router = useRouter();
 
 	useEffect(() => {
-		const userId = localStorage.getItem("userId");
-		if (!userId) return;
+		let cancelled = false;
 
 		async function load() {
-			const q = query(
-				collection(db, "studySets"),
-				where("userId", "==", userId),
-			);
-			const snap = await getDocs(q);
+			setLoading(true);
+			setError(null);
 
-			const data = snap.docs.map((doc) => ({
-				id: doc.id,
-					...(doc.data() as Omit<StudySet, "id">),
-			}));
+			try {
+				const sessionResponse = await fetch("/api/session", { cache: "no-store" });
+				const rawBody = await sessionResponse.text();
+				const sessionJson = parseApiJson<{ error?: string; userId?: string }>(rawBody);
+				const responseError = getApiResponseErrorMessage(
+					rawBody,
+					"Kunne ikke laste innloggingen.",
+				);
 
-			setSets(data);
+				if (!sessionResponse.ok || typeof sessionJson?.userId !== "string") {
+					if (sessionResponse.status === 401) {
+						router.replace("/");
+						return;
+					}
+
+					if (!cancelled) {
+						setSets([]);
+						setError(sessionJson?.error?.trim() || responseError);
+					}
+
+					return;
+				}
+
+				const setsQuery = query(
+					collection(db, "studySets"),
+					where("userId", "==", sessionJson.userId),
+				);
+				const snap = await getDocs(setsQuery);
+
+				if (cancelled) {
+					return;
+				}
+
+				setSets(
+					snap.docs.map((doc) => ({
+						id: doc.id,
+						...(doc.data() as Omit<StudySet, "id">),
+					})),
+				);
+			} catch (loadError) {
+				console.error(loadError);
+
+				if (!cancelled) {
+					setSets([]);
+					setError("Kunne ikke laste dashboardet.");
+				}
+			} finally {
+				if (!cancelled) {
+					setLoading(false);
+				}
+			}
 		}
 
-		load();
-	}, []);
+		void load();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [router]);
 
 	return (
 		<main className="page-shell">
@@ -71,7 +121,14 @@ export default function Dashboard() {
 						</span>
 					</div>
 
-					{sets.length === 0 ? (
+					{loading ? (
+						<div className="empty-panel">Laster studiesettene dine...</div>
+					) : error ? (
+						<div className="empty-panel">
+							<h3 className="text-xl font-semibold">Kunne ikke laste dashboardet</h3>
+							<p className="muted-text mt-2">{error}</p>
+						</div>
+					) : sets.length === 0 ? (
 						<div className="empty-panel">
 							<h3 className="text-xl font-semibold">Ingen sett ennå</h3>
 							<p className="muted-text mt-2">

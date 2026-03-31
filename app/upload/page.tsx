@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { db, storage } from "@/lib/firebase";
 import { ref, uploadBytes } from "firebase/storage";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { getApiResponseErrorMessage, parseApiJson } from "@/lib/apiResponse";
 import { useRouter } from "next/navigation";
 
 type UploadMode = "document" | "images";
@@ -41,12 +42,71 @@ export default function Upload() {
 	const [uploadMode, setUploadMode] = useState<UploadMode>("document");
 	const [files, setFiles] = useState<File[]>([]);
 	const [uploading, setUploading] = useState(false);
+	const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+	const [sessionLoading, setSessionLoading] = useState(true);
+	const [sessionError, setSessionError] = useState<string | null>(null);
 	const router = useRouter();
 	const trimmedTitle = title.trim();
 	const trimmedSubject = subject.trim();
-	const canUpload = Boolean(trimmedTitle && trimmedSubject && files.length > 0 && !uploading);
+	const canUpload = Boolean(
+		sessionUserId && trimmedTitle && trimmedSubject && files.length > 0 && !uploading && !sessionLoading,
+	);
 	const primaryFile = files[0] ?? null;
 	const isImageMode = uploadMode === "images";
+
+	useEffect(() => {
+		let cancelled = false;
+
+		async function loadSession() {
+			setSessionLoading(true);
+			setSessionError(null);
+
+			try {
+				const sessionResponse = await fetch("/api/session", { cache: "no-store" });
+				const rawBody = await sessionResponse.text();
+				const sessionJson = parseApiJson<{ error?: string; userId?: string }>(rawBody);
+				const responseError = getApiResponseErrorMessage(
+					rawBody,
+					"Kunne ikke laste innloggingen.",
+				);
+
+				if (!sessionResponse.ok || typeof sessionJson?.userId !== "string") {
+					if (sessionResponse.status === 401) {
+						router.replace("/");
+						return;
+					}
+
+					if (!cancelled) {
+						setSessionUserId(null);
+						setSessionError(sessionJson?.error?.trim() || responseError);
+					}
+
+					return;
+				}
+
+				if (!cancelled) {
+					setSessionUserId(sessionJson.userId);
+				}
+			} catch (sessionLoadError) {
+				console.error(sessionLoadError);
+
+				if (!cancelled) {
+					setSessionUserId(null);
+					setSessionError("Kunne ikke bekrefte innloggingen din.");
+				}
+			} finally {
+				if (!cancelled) {
+					setSessionLoading(false);
+				}
+			}
+		}
+
+		void loadSession();
+
+		return () => {
+			cancelled = true;
+		};
+	}, [router]);
 
 	function handleBack() {
 		if (uploading) {
@@ -92,8 +152,7 @@ export default function Upload() {
 			return;
 		}
 
-		const userId = localStorage.getItem("userId");
-		if (!userId) {
+		if (!sessionUserId) {
 			alert("Du må logge inn på nytt før du kan laste opp.");
 			router.push("/");
 			return;
@@ -111,7 +170,7 @@ export default function Upload() {
 
 		try {
 			setUploading(true);
-			const uploadPrefix = `uploads/${userId}/${Date.now()}`;
+			const uploadPrefix = `uploads/${sessionUserId}/${Date.now()}`;
 			const uploadedFiles = await Promise.all(
 				files.map(async (file, index) => {
 					const filePath = `${uploadPrefix}-${index}-${file.name}`;
@@ -133,7 +192,7 @@ export default function Upload() {
 			const firstUploadedFile = uploadedFiles[0];
 
 			const doc = await addDoc(collection(db, "studySets"), {
-				userId,
+				userId: sessionUserId,
 				title: trimmedTitle,
 				subject: trimmedSubject,
 				filePath: firstUploadedFile.filePath,
@@ -182,6 +241,12 @@ export default function Upload() {
 						</div>
 
 						<div className="surface-panel stack-md">
+							{sessionLoading ? (
+								<p className="muted-text text-sm">Bekrefter innlogging...</p>
+							) : sessionError ? (
+								<p className="error-text">{sessionError}</p>
+							) : null}
+
 								<div className="stack-sm">
 									<label className="input-label">Hvordan vil du legge inn materiale?</label>
 									<div className="row-wrap">
