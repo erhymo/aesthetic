@@ -357,7 +357,19 @@ export function groupChunksForCards(text: string) {
 }
 
 function normalizeWhitespace(value: string) {
-	return value.replace(/\s+/g, " ").trim();
+	return value
+		.replace(/[\u00AD\u200B-\u200D\u2060\uFEFF]/g, "")
+		.replace(/\u00A0/g, " ")
+		.replace(/\s+/g, " ")
+		.trim();
+}
+
+function canonicalizeSourceMatchText(value: string) {
+	return normalizeWhitespace(value.normalize("NFKC"))
+		.replace(/[“”„‟«»]/g, '"')
+		.replace(/[‘’‚‛‹›`´]/g, "'")
+		.replace(/[‐‑‒–—―−]/g, "-")
+		.replace(/…/g, "...");
 }
 
 function isFlashcardDifficulty(value: unknown): value is Flashcard["difficulty"] {
@@ -376,7 +388,12 @@ function sanitizeSourceSnippet(sourceSnippet: string, chunk: string) {
 	}
 
 	if (!normalizedChunk.includes(normalizedSnippet)) {
-		return null;
+		const canonicalSnippet = canonicalizeSourceMatchText(normalizedSnippet);
+		const canonicalChunk = canonicalizeSourceMatchText(chunk);
+
+		if (!canonicalSnippet || !canonicalChunk.includes(canonicalSnippet)) {
+			return null;
+		}
 	}
 
 	return normalizedSnippet;

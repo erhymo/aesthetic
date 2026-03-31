@@ -168,12 +168,16 @@ export async function POST(req: NextRequest) {
 		if (deduped.length === 0) {
 			await setRef.update({
 				status: "error",
-				lastError: "Ingen gyldige flashcards ble generert fra teksten.",
+				lastError:
+					"Klarte ikke å lage brukbare flashcards fra teksten. Prøv igjen, eller last opp en fil med tydeligere sammenhengende tekst.",
 			});
 
 			return NextResponse.json(
-					{ error: "Ingen gyldige flashcards ble generert fra teksten." },
-				{ status: 500 },
+					{
+						error:
+							"Klarte ikke å lage brukbare flashcards fra teksten. Prøv igjen, eller last opp en fil med tydeligere sammenhengende tekst.",
+					},
+				{ status: 400 },
 			);
 		}
 
