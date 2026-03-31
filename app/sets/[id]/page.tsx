@@ -3,6 +3,7 @@
 import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { db } from "@/lib/firebase";
+import { getApiResponseErrorMessage, parseApiJson } from "@/lib/apiResponse";
 import {
 	collection,
 	doc,
@@ -64,22 +65,6 @@ function getCardCountOptions(cardCount: number) {
 	return Array.from(new Set([5, 10, 15, 20, cardCount].filter((count) => count <= cardCount)))
 		.sort((left, right) => left - right);
 }
-
-function parseProcessResponse(rawBody: string) {
-	if (!rawBody) {
-		return null;
-	}
-
-	try {
-		return JSON.parse(rawBody) as {
-			error?: string;
-			cardCount?: number;
-		};
-	} catch {
-		return null;
-	}
-}
-
 export default function StudySetPage({
 	params,
 }: {
@@ -170,8 +155,14 @@ export default function StudySetPage({
 			});
 
 			const rawBody = await res.text();
-			const json = parseProcessResponse(rawBody);
-			const responseError = typeof json?.error === "string" ? json.error : rawBody.trim();
+				const json = parseApiJson<{
+					error?: string;
+					cardCount?: number;
+				}>(rawBody);
+				const responseError = getApiResponseErrorMessage(
+					rawBody,
+					`Generering feilet (${res.status}).`,
+				);
 
 			if (!res.ok) {
 				const refreshedSet = await loadSet();
@@ -226,14 +217,14 @@ export default function StudySetPage({
 			});
 
 			const rawBody = await res.text();
-			const parsed = parseProcessResponse(rawBody);
-			const responseError =
-				typeof parsed?.error === "string" && parsed.error.trim().length > 0
-					? parsed.error
-					: rawBody.trim() || "Kunne ikke slette studiesettet.";
+				const parsed = parseApiJson<{ error?: string }>(rawBody);
+				const responseError = getApiResponseErrorMessage(
+					rawBody,
+					"Kunne ikke slette studiesettet.",
+				);
 
 			if (!res.ok) {
-				alert(responseError);
+					alert(parsed?.error?.trim() || responseError);
 				return;
 			}
 

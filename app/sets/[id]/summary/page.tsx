@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { getApiResponseErrorMessage, parseApiJson } from "@/lib/apiResponse";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
@@ -68,14 +69,17 @@ export default function SummaryPage({
 
 			if (!snap.exists()) {
 				setData(null);
-				return;
+					return null;
 			}
 
-			setData(snap.data() as StudySet);
+				const studySetData = snap.data() as StudySet;
+				setData(studySetData);
+				return studySetData;
 		} catch (loadError) {
 			console.error(loadError);
 			setError("Kunne ikke laste oppsummeringen.");
 			setData(null);
+				return null;
 		} finally {
 			setLoading(false);
 		}
@@ -118,13 +122,16 @@ export default function SummaryPage({
 					body: JSON.stringify({ setId: id, force }),
 				});
 
-				const json = (await response.json().catch(() => null)) as {
-					error?: string;
-				} | null;
+				const rawBody = await response.text();
+				const json = parseApiJson<{ error?: string }>(rawBody);
+				const responseError = getApiResponseErrorMessage(
+					rawBody,
+					"Kunne ikke lage oppsummering.",
+				);
 
 				if (!response.ok) {
-					await loadSet();
-					setError(json?.error || "Kunne ikke lage oppsummering.");
+					const refreshedSet = await loadSet();
+					setError(refreshedSet?.summaryLastError?.trim() || json?.error?.trim() || responseError);
 					return;
 				}
 

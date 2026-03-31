@@ -13,6 +13,9 @@ import {
 } from "@/lib/parseFile";
 import { getStoredStudySetFiles } from "@/lib/studySetFiles";
 
+export const runtime = "nodejs";
+export const maxDuration = 60;
+
 if (!getApps().length) {
 	initializeApp({
 		credential: cert(JSON.parse(process.env.FIREBASE_ADMIN_KEY!)),

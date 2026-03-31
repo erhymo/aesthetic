@@ -72,29 +72,18 @@ function getImageMimeType(rawFileName: string) {
 	return null;
 }
 
-export async function parsePDF(buffer: Buffer) {
-	const parser = new PDFParse({ data: buffer });
-	try {
-		const result = await parser.getText();
-		return result.text;
-	} finally {
-		await parser.destroy();
-	}
+function normalizeExtractedText(text: string) {
+	return text.replace(/\u0000/g, "").replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-export async function parseDOCX(buffer: Buffer) {
-	const result = await mammoth.extractRawText({ buffer });
-	return result.value;
+function hasMeaningfulExtractedText(text: string) {
+	const normalized = normalizeExtractedText(text);
+	const letterCount = normalized.match(/[A-Za-zÀ-ÖØ-öø-ÿ]/g)?.length ?? 0;
+
+	return normalized.length >= 120 || letterCount >= 40;
 }
 
-export async function extractTextFromImageBuffer(buffer: Buffer, rawFileName: string) {
-	const mimeType = getImageMimeType(rawFileName);
-
-	if (!mimeType) {
-		throw new Error("Unsupported image type");
-	}
-
-	const imageUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
+async function extractTextFromImageUrl(imageUrl: string) {
 	const response = await client.responses.create({
 		model: "gpt-4.1-mini",
 		input: [
@@ -143,7 +132,97 @@ export async function extractTextFromImageBuffer(buffer: Buffer, rawFileName: st
 	});
 
 	const parsed = JSON.parse(response.output_text) as { text?: string };
-	const extractedText = typeof parsed.text === "string" ? parsed.text.trim() : "";
+	return typeof parsed.text === "string" ? normalizeExtractedText(parsed.text) : "";
+}
+
+async function parsePDFText(buffer: Buffer) {
+	const parser = new PDFParse({ data: buffer });
+
+	try {
+		const result = await parser.getText();
+		return normalizeExtractedText(result.text);
+	} finally {
+		await parser.destroy();
+	}
+}
+
+async function parsePDFWithOCR(buffer: Buffer) {
+	const parser = new PDFParse({ data: buffer });
+
+	try {
+		const screenshots = await parser.getScreenshot({
+			desiredWidth: 1600,
+			imageBuffer: false,
+			imageDataUrl: true,
+		});
+
+		const pageTexts: string[] = [];
+
+		for (const page of screenshots.pages) {
+			const pageText = await extractTextFromImageUrl(page.dataUrl);
+
+			if (pageText) {
+				pageTexts.push(pageText);
+			}
+		}
+
+		return normalizeExtractedText(pageTexts.join("\n\n"));
+	} finally {
+		await parser.destroy();
+	}
+}
+
+export async function parsePDF(buffer: Buffer) {
+	let extractedText = "";
+	let directParseError: unknown = null;
+
+	try {
+		extractedText = await parsePDFText(buffer);
+
+		if (hasMeaningfulExtractedText(extractedText)) {
+			return extractedText;
+		}
+	} catch (error) {
+		directParseError = error;
+	}
+
+	try {
+		const ocrText = await parsePDFWithOCR(buffer);
+
+		if (hasMeaningfulExtractedText(ocrText) || ocrText.length > extractedText.length) {
+			return ocrText;
+		}
+	} catch (ocrError) {
+		if (!directParseError) {
+			directParseError = ocrError;
+		}
+	}
+
+	if (extractedText) {
+		return extractedText;
+	}
+
+	if (directParseError instanceof Error && directParseError.message.trim()) {
+		throw directParseError;
+	}
+
+	throw new Error("No readable text found in PDF");
+}
+
+export async function parseDOCX(buffer: Buffer) {
+	const result = await mammoth.extractRawText({ buffer });
+	return result.value;
+}
+
+export async function extractTextFromImageBuffer(buffer: Buffer, rawFileName: string) {
+	const mimeType = getImageMimeType(rawFileName);
+
+	if (!mimeType) {
+		throw new Error("Unsupported image type");
+	}
+
+	const imageUrl = `data:${mimeType};base64,${buffer.toString("base64")}`;
+	const extractedText = await extractTextFromImageUrl(imageUrl);
 
 	if (!extractedText) {
 		throw new Error("No readable text found in image");
@@ -183,6 +262,25 @@ export function getTextExtractionError(error: unknown) {
 	) {
 		return {
 			message: "Filtypen støttes ikke. Bruk PDF, DOCX, JPG, PNG eller WEBP.",
+			status: 400,
+		};
+	}
+
+	if (
+		rawMessage === "No readable text found in PDF" ||
+		normalizedMessage.includes("no readable text found in pdf") ||
+		normalizedMessage.includes("password") ||
+		normalizedMessage.includes("invalidpdf") ||
+		normalizedMessage.includes("formaterror") ||
+		normalizedMessage.includes("malformed") ||
+		normalizedMessage.includes("bad end offset") ||
+		normalizedMessage.includes("setting up fake worker") ||
+		normalizedMessage.includes("worker") ||
+		normalizedMessage.includes("pdf") && normalizedMessage.includes("invalid")
+	) {
+		return {
+			message:
+				"PDF-filen kunne ikke leses skikkelig. Prøv å eksportere den på nytt, eller last opp sidene som bilder i stedet.",
 			status: 400,
 		};
 	}
