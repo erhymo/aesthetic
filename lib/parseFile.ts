@@ -1,5 +1,3 @@
-import path from "node:path";
-import { pathToFileURL } from "node:url";
 import OpenAI from "openai";
 import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
@@ -7,12 +5,6 @@ import mammoth from "mammoth";
 const client = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY,
 });
-
-PDFParse.setWorker(
-	pathToFileURL(
-		path.join(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs"),
-	).href,
-);
 
 export type Flashcard = {
 	question: string;
@@ -167,6 +159,19 @@ async function parsePDFWithOCR(buffer: Buffer) {
 		}
 
 		return normalizeExtractedText(pageTexts.join("\n\n"));
+	} catch (error) {
+		const message = error instanceof Error ? error.message.toLowerCase() : "";
+
+		if (
+			message.includes("@napi-rs/canvas") ||
+			message.includes("canvasfactory") ||
+			message.includes("dommatrix") ||
+			message.includes("path2d")
+		) {
+			throw new Error("PDF OCR rendering is unavailable");
+		}
+
+		throw error;
 	} finally {
 		await parser.destroy();
 	}
@@ -274,6 +279,10 @@ export function getTextExtractionError(error: unknown) {
 		normalizedMessage.includes("formaterror") ||
 		normalizedMessage.includes("malformed") ||
 		normalizedMessage.includes("bad end offset") ||
+			rawMessage === "PDF OCR rendering is unavailable" ||
+			normalizedMessage.includes("@napi-rs/canvas") ||
+			normalizedMessage.includes("canvasfactory") ||
+			normalizedMessage.includes("dommatrix") ||
 		normalizedMessage.includes("setting up fake worker") ||
 		normalizedMessage.includes("worker") ||
 		normalizedMessage.includes("pdf") && normalizedMessage.includes("invalid")
