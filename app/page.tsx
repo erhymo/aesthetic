@@ -1,30 +1,49 @@
 "use client";
 
 import { useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getApiResponseErrorMessage, parseApiJson } from "@/lib/apiResponse";
 import { useRouter } from "next/navigation";
 
 export default function Home() {
 	const [pin, setPin] = useState("");
 	const [error, setError] = useState("");
+	const [loggingIn, setLoggingIn] = useState(false);
 	const router = useRouter();
 
 	async function handleLogin() {
-		setError("");
-
-		const q = query(collection(db, "users"), where("pin", "==", pin));
-		const snap = await getDocs(q);
-
-		if (snap.empty) {
-			setError("Feil PIN");
+		if (loggingIn) {
 			return;
 		}
 
-		const user = snap.docs[0];
-		localStorage.setItem("userId", user.id);
+		setError("");
 
-		router.push("/dashboard");
+		try {
+			setLoggingIn(true);
+
+			const response = await fetch("/api/login", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ pin }),
+			});
+
+			const rawBody = await response.text();
+			const json = parseApiJson<{ error?: string; userId?: string }>(rawBody);
+			const responseError = getApiResponseErrorMessage(rawBody, "Kunne ikke logge inn.");
+
+			if (!response.ok || typeof json?.userId !== "string") {
+				setError(json?.error?.trim() || responseError);
+				return;
+			}
+
+			localStorage.setItem("userId", json.userId);
+			router.push("/dashboard");
+			router.refresh();
+		} catch (loginError) {
+			console.error(loginError);
+			setError("Kunne ikke logge inn. Prøv igjen om litt.");
+		} finally {
+			setLoggingIn(false);
+		}
 	}
 
 	return (
@@ -72,9 +91,9 @@ export default function Home() {
 						<button
 							onClick={handleLogin}
 							className="btn btn-primary w-full"
-							disabled={pin.length !== 4}
+								disabled={pin.length !== 4 || loggingIn}
 						>
-							Logg inn
+								{loggingIn ? "Logger inn..." : "Logg inn"}
 						</button>
 					</div>
 				</div>

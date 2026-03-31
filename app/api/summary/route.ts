@@ -8,6 +8,7 @@ import {
 	generateSummaryFromText,
 	type DocumentSummary,
 } from "@/lib/parseFile";
+import { getAuthenticatedUserId } from "@/lib/authSession";
 import { getStoredStudySetFiles } from "@/lib/studySetFiles";
 import { getErrorMessage, withRetry } from "@/lib/transientRetry";
 
@@ -62,7 +63,13 @@ export async function POST(req: NextRequest) {
 		const force = body.force === true;
 
 		if (!setId) {
-			return NextResponse.json({ error: "Missing setId" }, { status: 400 });
+			return NextResponse.json({ error: "Mangler studiesett-id." }, { status: 400 });
+		}
+
+		const userId = await getAuthenticatedUserId();
+
+		if (!userId) {
+			return NextResponse.json({ error: "Du må logge inn på nytt." }, { status: 401 });
 		}
 
 		const db = getFirestore();
@@ -71,13 +78,26 @@ export async function POST(req: NextRequest) {
 		const setSnap = await withRetry("study set lookup", () => setRef.get());
 
 		if (!setSnap.exists) {
-			return NextResponse.json({ error: "Study set not found" }, { status: 404 });
+			return NextResponse.json({ error: "Fant ikke studiesettet." }, { status: 404 });
 		}
 
 		const setData = setSnap.data();
 
 		if (!setData) {
-			return NextResponse.json({ error: "Missing study set data" }, { status: 500 });
+			return NextResponse.json({ error: "Mangler studiesettdata." }, { status: 500 });
+		}
+
+		const ownerId = typeof setData.userId === "string" ? setData.userId : null;
+
+		if (!ownerId) {
+			return NextResponse.json({ error: "Mangler studiesettdata." }, { status: 500 });
+		}
+
+		if (ownerId !== userId) {
+			return NextResponse.json(
+				{ error: "Du har ikke tilgang til dette studiesettet." },
+				{ status: 403 },
+			);
 		}
 
 		const cachedSummary = getStoredSummary(setData);
@@ -95,14 +115,14 @@ export async function POST(req: NextRequest) {
 			});
 
 			return NextResponse.json(
-				{ error: "Study set is missing file reference" },
+				{ error: "Studiesettet mangler filreferanse." },
 				{ status: 400 },
 			);
 		}
 
 		if (setData.summaryStatus === "processing") {
 			return NextResponse.json(
-				{ error: "Summary is already processing" },
+				{ error: "Oppsummering genereres allerede." },
 				{ status: 409 },
 			);
 		}

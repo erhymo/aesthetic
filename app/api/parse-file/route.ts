@@ -11,6 +11,7 @@ import {
 	type Flashcard,
 	type FeedbackSignalCard,
 } from "@/lib/parseFile";
+import { getAuthenticatedUserId } from "@/lib/authSession";
 import { getStoredStudySetFiles } from "@/lib/studySetFiles";
 import { withRetry } from "@/lib/transientRetry";
 
@@ -30,7 +31,9 @@ type ProcessLockResult =
 	| { type: "locked"; setData: Record<string, unknown> }
 	| { type: "busy" }
 	| { type: "missing" }
-	| { type: "missingData" };
+	| { type: "missingData" }
+	| { type: "missingOwner" }
+	| { type: "forbidden" };
 
 function logProcessEvent(setId: string, stage: string, details?: Record<string, unknown>) {
 	console.info("[process]", {
@@ -49,6 +52,7 @@ async function updateProcessState(setId: string, data: Record<string, unknown>) 
 async function acquireProcessingLock(
 	db: Firestore,
 	setId: string,
+	userId: string,
 ): Promise<ProcessLockResult> {
 	return withRetry("process lock", async () =>
 		db.runTransaction(async (transaction) => {
@@ -63,6 +67,16 @@ async function acquireProcessingLock(
 
 			if (!setData) {
 				return { type: "missingData" } satisfies ProcessLockResult;
+			}
+
+			const ownerId = typeof setData.userId === "string" ? setData.userId : null;
+
+			if (!ownerId) {
+				return { type: "missingOwner" } satisfies ProcessLockResult;
+			}
+
+			if (ownerId !== userId) {
+				return { type: "forbidden" } satisfies ProcessLockResult;
 			}
 
 			if (setData.status === "processing") {
@@ -108,13 +122,19 @@ export async function POST(req: NextRequest) {
 				return NextResponse.json({ error: "Mangler studiesett-id." }, { status: 400 });
 		}
 
+			const userId = await getAuthenticatedUserId();
+
+			if (!userId) {
+				return NextResponse.json({ error: "Du må logge inn på nytt." }, { status: 401 });
+			}
+
 		const db = getFirestore();
 		const bucket = getStorage().bucket();
 			const requestStartedAt = Date.now();
 
 		const setRef = db.collection("studySets").doc(setId);
 			logProcessEvent(setId, "request_started");
-			const lockResult = await acquireProcessingLock(db, setId);
+				const lockResult = await acquireProcessingLock(db, setId, userId);
 
 			if (lockResult.type === "missing") {
 				logProcessEvent(setId, "set_missing");
@@ -124,13 +144,21 @@ export async function POST(req: NextRequest) {
 			);
 		}
 
-			if (lockResult.type === "missingData") {
+				if (lockResult.type === "missingData" || lockResult.type === "missingOwner") {
 				logProcessEvent(setId, "set_missing_data");
 			return NextResponse.json(
 					{ error: "Mangler studiesettdata." },
 				{ status: 500 },
 			);
 		}
+
+				if (lockResult.type === "forbidden") {
+					logProcessEvent(setId, "forbidden");
+					return NextResponse.json(
+						{ error: "Du har ikke tilgang til dette studiesettet." },
+						{ status: 403 },
+					);
+				}
 
 			if (lockResult.type === "busy") {
 				logProcessEvent(setId, "already_processing");

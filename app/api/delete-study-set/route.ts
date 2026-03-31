@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cert, getApps, initializeApp } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
+import { getAuthenticatedUserId } from "@/lib/authSession";
 import { getStoredStudySetFiles } from "@/lib/studySetFiles";
 
 export const runtime = "nodejs";
@@ -39,14 +40,15 @@ export async function POST(req: NextRequest) {
 	try {
 		const body = await req.json();
 		const setId = typeof body.setId === "string" ? body.setId : "";
-		const userId = typeof body.userId === "string" ? body.userId : "";
 
 		if (!setId) {
 			return NextResponse.json({ error: "Mangler studiesett-id." }, { status: 400 });
 		}
 
+		const userId = await getAuthenticatedUserId();
+
 		if (!userId) {
-			return NextResponse.json({ error: "Mangler bruker-id." }, { status: 400 });
+			return NextResponse.json({ error: "Du må logge inn på nytt." }, { status: 401 });
 		}
 
 		const db = getFirestore();
@@ -64,7 +66,13 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json({ error: "Mangler studiesettdata." }, { status: 500 });
 		}
 
-		if (setData.userId !== userId) {
+		const ownerId = typeof setData.userId === "string" ? setData.userId : null;
+
+		if (!ownerId) {
+			return NextResponse.json({ error: "Mangler studiesettdata." }, { status: 500 });
+		}
+
+		if (ownerId !== userId) {
 			return NextResponse.json({ error: "Du har ikke tilgang til å slette dette studiesettet." }, { status: 403 });
 		}
 

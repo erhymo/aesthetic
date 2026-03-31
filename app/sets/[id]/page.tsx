@@ -192,13 +192,6 @@ export default function StudySetPage({
 			return;
 		}
 
-		const userId = localStorage.getItem("userId");
-
-		if (!userId) {
-			alert("Fant ikke bruker på denne enheten. Prøv å laste siden på nytt.");
-			return;
-		}
-
 		const confirmed = window.confirm(
 			`Er du sikker på at du vil slette studiesettet “${data?.title ?? "dette studiesettet"}”? Dette kan ikke angres.`,
 		);
@@ -213,7 +206,7 @@ export default function StudySetPage({
 			const res = await fetch("/api/delete-study-set", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ setId: id, userId }),
+				body: JSON.stringify({ setId: id }),
 			});
 
 			const rawBody = await res.text();
