@@ -1,35 +1,6 @@
 import OpenAI from "openai";
 import mammoth from "mammoth";
-
-// pdf-parse / pdfjs-dist must NOT be statically analyzed by Turbopack because
-// the bundler cannot relocate the pdf.worker.mjs file correctly.  We lazy-load
-// both packages at runtime using dynamic imports whose specifiers are opaque to
-// the bundler's static analysis.
-//
-// pdfjs-dist checks `globalThis.pdfjsWorker?.WorkerMessageHandler` before
-// trying to import the worker file.  By pre-loading the worker module and
-// attaching it to `globalThis.pdfjsWorker`, we completely bypass the file
-// resolution that breaks inside bundled serverless functions.
-type PDFParseType = typeof import("pdf-parse");
-let _pdfParseModule: PDFParseType | null = null;
-
-async function getPDFParse(): Promise<PDFParseType["PDFParse"]> {
-	if (!_pdfParseModule) {
-		// Pre-load the pdfjs-dist worker and attach to globalThis so pdfjs-dist
-		// never attempts its own dynamic import("./pdf.worker.mjs").
-		try {
-			const workerSpecifier = ["pdfjs", "dist"].join("-") + "/legacy/build/pdf.worker.mjs";
-			const workerModule = await (import(/* webpackIgnore: true */ workerSpecifier) as Promise<Record<string, unknown>>);
-			(globalThis as Record<string, unknown>).pdfjsWorker = workerModule;
-		} catch {
-			// If worker pre-load fails, pdf-parse will try its own resolution.
-		}
-
-		const specifier = ["pdf", "parse"].join("-");
-		_pdfParseModule = await (import(/* webpackIgnore: true */ specifier) as Promise<PDFParseType>);
-	}
-	return _pdfParseModule.PDFParse;
-}
+import { extractText } from "unpdf";
 
 const client = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY,
@@ -178,93 +149,25 @@ async function extractTextFromImageUrl(imageUrl: string) {
 	return typeof parsed.text === "string" ? normalizeExtractedText(parsed.text) : "";
 }
 
-async function parsePDFText(buffer: Buffer) {
-	const PDFParse = await getPDFParse();
-	const parser = new PDFParse({ data: buffer });
-
-	try {
-		const result = await parser.getText();
-		return normalizeExtractedText(result.text);
-	} finally {
-		await parser.destroy();
-	}
-}
-
-async function parsePDFWithOCR(buffer: Buffer) {
-	const PDFParse = await getPDFParse();
-	const parser = new PDFParse({ data: buffer });
-
-	try {
-		const screenshots = await parser.getScreenshot({
-			desiredWidth: 1600,
-			imageBuffer: false,
-			imageDataUrl: true,
-		});
-
-		const pageTexts: string[] = [];
-
-		for (const page of screenshots.pages) {
-			const pageText = await extractTextFromImageUrl(page.dataUrl);
-
-			if (pageText) {
-				pageTexts.push(pageText);
-			}
-		}
-
-		return normalizeExtractedText(pageTexts.join("\n\n"));
-	} catch (error) {
-		const message = error instanceof Error ? error.message.toLowerCase() : "";
-
-		if (
-			message.includes("@napi-rs/canvas") ||
-			message.includes("canvasfactory") ||
-			message.includes("dommatrix") ||
-			message.includes("path2d")
-		) {
-			throw new Error("PDF OCR rendering is unavailable");
-		}
-
-		throw error;
-	} finally {
-		await parser.destroy();
-	}
-}
-
 export async function parsePDF(buffer: Buffer) {
-	let extractedText = "";
-	let directParseError: unknown = null;
-
 	try {
-		extractedText = await parsePDFText(buffer);
+		const uint8Array = new Uint8Array(buffer);
+		const result = await extractText(uint8Array);
+		const extractedText = normalizeExtractedText(
+			Array.isArray(result.text) ? result.text.join("\n\n") : result.text,
+		);
 
 		if (hasMeaningfulExtractedText(extractedText)) {
 			return extractedText;
 		}
+
+		throw new Error("No readable text found in PDF. The document might be scanned images only.");
 	} catch (error) {
-		directParseError = error;
-	}
-
-	try {
-		const ocrText = await parsePDFWithOCR(buffer);
-
-		if (hasMeaningfulExtractedText(ocrText) || ocrText.length > extractedText.length) {
-			return ocrText;
+		if (error instanceof Error && error.message.trim()) {
+			throw error;
 		}
-	} catch (ocrError) {
-		if (!directParseError) {
-			directParseError = ocrError;
-		}
+		throw new Error("PDF-filen kunne ikke leses skikkelig.");
 	}
-
-	if (extractedText) {
-		return extractedText;
-	}
-
-	if (directParseError instanceof Error && directParseError.message.trim()) {
-		throw directParseError;
-	}
-
-	throw new Error("No readable text found in PDF");
 }
 
 export async function parseDOCX(buffer: Buffer) {
