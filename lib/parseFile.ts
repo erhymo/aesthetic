@@ -1,32 +1,32 @@
-import { createRequire } from "node:module";
-import path from "node:path";
 import OpenAI from "openai";
 import mammoth from "mammoth";
 
 // pdf-parse / pdfjs-dist must NOT be statically analyzed by Turbopack because
 // the bundler cannot relocate the pdf.worker.mjs file correctly.  We lazy-load
-// the package at runtime using a dynamic import whose specifier is opaque to
-// the bundler's static analysis, and explicitly set the worker source path so
-// pdfjs-dist can find its worker file on Vercel's serverless filesystem.
+// both packages at runtime using dynamic imports whose specifiers are opaque to
+// the bundler's static analysis.
+//
+// pdfjs-dist checks `globalThis.pdfjsWorker?.WorkerMessageHandler` before
+// trying to import the worker file.  By pre-loading the worker module and
+// attaching it to `globalThis.pdfjsWorker`, we completely bypass the file
+// resolution that breaks inside bundled serverless functions.
 type PDFParseType = typeof import("pdf-parse");
 let _pdfParseModule: PDFParseType | null = null;
 
 async function getPDFParse(): Promise<PDFParseType["PDFParse"]> {
 	if (!_pdfParseModule) {
+		// Pre-load the pdfjs-dist worker and attach to globalThis so pdfjs-dist
+		// never attempts its own dynamic import("./pdf.worker.mjs").
+		try {
+			const workerSpecifier = ["pdfjs", "dist"].join("-") + "/legacy/build/pdf.worker.mjs";
+			const workerModule = await (import(/* webpackIgnore: true */ workerSpecifier) as Promise<Record<string, unknown>>);
+			(globalThis as Record<string, unknown>).pdfjsWorker = workerModule;
+		} catch {
+			// If worker pre-load fails, pdf-parse will try its own resolution.
+		}
+
 		const specifier = ["pdf", "parse"].join("-");
 		_pdfParseModule = await (import(/* webpackIgnore: true */ specifier) as Promise<PDFParseType>);
-
-		// Point pdfjs-dist to the worker file so the fake-worker setup succeeds.
-		// createRequire resolves from node_modules at runtime (works on Vercel).
-		try {
-			const _require = createRequire(import.meta.url);
-			const workerPath = _require.resolve(
-				path.join(["pdfjs", "dist"].join("-"), "legacy", "build", "pdf.worker.mjs"),
-			);
-			_pdfParseModule.PDFParse.setWorker(workerPath);
-		} catch {
-			// If resolve fails, let pdfjs-dist try its default resolution.
-		}
 	}
 	return _pdfParseModule.PDFParse;
 }
