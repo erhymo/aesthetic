@@ -1,6 +1,20 @@
 import OpenAI from "openai";
-import { PDFParse } from "pdf-parse";
 import mammoth from "mammoth";
+
+// pdf-parse / pdfjs-dist must NOT be statically analyzed by Turbopack because
+// the bundler cannot relocate the pdf.worker.mjs file correctly.  We lazy-load
+// the package at runtime using a dynamic import whose specifier is opaque to
+// the bundler's static analysis.
+type PDFParseType = typeof import("pdf-parse");
+let _pdfParseModule: PDFParseType | null = null;
+
+async function getPDFParse(): Promise<PDFParseType["PDFParse"]> {
+	if (!_pdfParseModule) {
+		const specifier = ["pdf", "parse"].join("-");
+		_pdfParseModule = await (import(/* webpackIgnore: true */ specifier) as Promise<PDFParseType>);
+	}
+	return _pdfParseModule.PDFParse;
+}
 
 const client = new OpenAI({
 	apiKey: process.env.OPENAI_API_KEY,
@@ -150,6 +164,7 @@ async function extractTextFromImageUrl(imageUrl: string) {
 }
 
 async function parsePDFText(buffer: Buffer) {
+	const PDFParse = await getPDFParse();
 	const parser = new PDFParse({ data: buffer });
 
 	try {
@@ -161,6 +176,7 @@ async function parsePDFText(buffer: Buffer) {
 }
 
 async function parsePDFWithOCR(buffer: Buffer) {
+	const PDFParse = await getPDFParse();
 	const parser = new PDFParse({ data: buffer });
 
 	try {

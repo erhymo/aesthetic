@@ -5,7 +5,6 @@ import type { NextConfig } from "next";
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const nextConfig: NextConfig = {
-	serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
 	turbopack: {
 		root: projectRoot,
 		resolveAlias: {
