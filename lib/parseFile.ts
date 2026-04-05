@@ -587,7 +587,8 @@ async function summarizeSegment(segment: string) {
 					{
 						type: "input_text",
 						text:
-							"Du er en nøktern lærerassistent. Oppsummer kun det som faktisk står i teksten du får. " +
+							"Du er en nøktern lærerassistent. Oppsummer kun det aller viktigste fra teksten du får, i stikkordsform. " +
+							"Fokuser på de store linjene, ikke nitty-gritty detaljer. " +
 							"Ikke bruk web, ikke legg til forklaringer fra egen kunnskap, og ikke gjett.",
 					},
 				],
@@ -598,8 +599,8 @@ async function summarizeSegment(segment: string) {
 					{
 						type: "input_text",
 						text:
-							"Lag 2-4 korte punkt fra teksten under. " +
-							"Hvert punkt skal være konkret, enkelt å forstå, og tydelig forankret i teksten.\n\n" +
+							"Lag 2-4 korte stikkord/punkter fra teksten under. " +
+							"Hvert punkt skal være konkret, trekke frem det aller viktigste, og være tydelig forankret i teksten.\n\n" +
 							"Tekst:\n" +
 							segment,
 					},
@@ -652,10 +653,11 @@ export async function generateCardsFromChunk(
 					{
 						type: "input_text",
 						text:
-							"Du er en lærer som lager svært gode flashcards for prøveforberedelse. " +
+							"Du er en lærer for 10. klasse som lager svært gode flashcards for prøveforberedelse. " +
 							"Lag bare kort basert på innhold i teksten. " +
-							"Velg det som mest sannsynlig er viktig til prøve. " +
-							"Kortene skal være klare, korte og entydige. " +
+							"Velg utelukkende de viktigste tingene (ikke nitty-gritty detaljer). " +
+							"Lag aldri flere spørsmål om nøyaktig samme tema - spør om en ting kun én gang. " +
+							"Kortene skal være klare, korte og lærerike for en 10. klassing. " +
 							"Hvis du får tidligere feedback, skal den kun brukes til å prioritere type spørsmål og vanskelighetsgrad. " +
 							"Du må aldri bruke feedback som kilde til fakta eller trekke inn informasjon som ikke står i teksten.",
 					},
@@ -667,11 +669,12 @@ export async function generateCardsFromChunk(
 					{
 						type: "input_text",
 						text:
-							"Lag 8-15 flashcards fra teksten under.\n\n" +
+							"Lag inntil 15 flashcards fra teksten under.\n\n" +
 							"Krav:\n" +
-							"- korte spørsmål\n" +
+							"- korte, gode spørsmål for 10. trinn\n" +
 							"- presise svar\n" +
-							"- bare viktige ting\n" +
+							"- bare de viktigste tingene\n" +
+							"- UNNGÅ GJENTAKELSER: still bare ett spørsmål per tema/konsept\n" +
 							'- difficulty må være "easy", "medium" eller "hard"\n' +
 							"- sourceSnippet må være et kort, eksakt utdrag kopiert fra teksten\n" +
 							"- sourceSnippet skal være 1-2 setninger eller et kort sitat på maks 280 tegn\n" +
@@ -748,7 +751,8 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 					{
 						type: "input_text",
 						text:
-							"Du er en nøktern lærerassistent. Lag en kort oppsummering kun fra punktene du får. " +
+							"Du er en nøktern lærer for 10. klasse. Lag en kort oppsummering kun fra punktene du får. " +
+							"Fokuser kun på de aller viktigste tingene, og bruk stikkordsform for hovedpunktene. " +
 							"Ikke bruk annen kunnskap, ikke fyll inn hull, og ikke skriv noe som ikke støttes av punktene.",
 					},
 				],
@@ -761,8 +765,8 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 						text:
 							"Lag en kort norsk oppsummering med disse feltene:\n" +
 							"- title: en kort overskrift\n" +
-							"- intro: 1-2 setninger\n" +
-							"- bullets: 3-5 korte hovedpunkter\n" +
+							"- intro: 1-2 korte setninger\n" +
+							"- bullets: 3-5 av de aller viktigste hovedpunktene i kort stikkordsform\n" +
 							"- takeaway: 1 kort huskeregel\n\n" +
 							"Kildepunkter:\n- " +
 							dedupedBullets.join("\n- "),
