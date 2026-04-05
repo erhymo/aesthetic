@@ -599,7 +599,7 @@ async function summarizeSegment(segment: string) {
 					{
 						type: "input_text",
 						text:
-							"Lag 2-4 korte stikkord/punkter fra teksten under. " +
+							"Lag 3-6 korte stikkord/punkter fra teksten under. " +
 							"Hvert punkt skal være konkret, trekke frem det aller viktigste, og være tydelig forankret i teksten.\n\n" +
 							"Tekst:\n" +
 							segment,
@@ -766,7 +766,7 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 							"Lag en kort norsk oppsummering med disse feltene:\n" +
 							"- title: en kort overskrift\n" +
 							"- intro: 1-2 korte setninger\n" +
-							"- bullets: 3-5 av de aller viktigste hovedpunktene i kort stikkordsform\n" +
+							"- bullets: 5-8 av de aller viktigste hovedpunktene i kort stikkordsform\n" +
 							"- takeaway: 1 kort huskeregel\n\n" +
 							"Kildepunkter:\n- " +
 							dedupedBullets.join("\n- "),
@@ -805,7 +805,7 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 	return {
 		title: parsed.title.trim(),
 		intro: parsed.intro.trim(),
-		bullets: parsed.bullets.map((bullet) => bullet.trim()).filter(Boolean).slice(0, 5),
+		bullets: parsed.bullets.map((bullet) => bullet.trim()).filter(Boolean).slice(0, 10),
 		takeaway: parsed.takeaway.trim(),
 	};
 }
