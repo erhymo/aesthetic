@@ -241,7 +241,19 @@ export default function StudySetPage({
 			const refreshedSet = await loadSet();
 			const generatedCardCount =
 				typeof json?.cardCount === "number" ? json.cardCount : refreshedSet?.cardCount ?? 0;
-			alert(`Ferdig. Genererte ${generatedCardCount} flashcards.`);
+
+			// Generate summary automatically
+			try {
+				await fetch("/api/summary", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ setId: id }),
+				});
+			} catch (summaryErr) {
+				console.error("Failed to generate summary automatically:", summaryErr);
+			}
+
+			alert(`Ferdig. Genererte ${generatedCardCount} flashcards og en oppsummering.`);
 		} catch (err) {
 			console.error(err);
 			await loadSet();
