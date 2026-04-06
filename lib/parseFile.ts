@@ -754,7 +754,7 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 						text:
 							"Du er en nøktern lærer for 10. klasse. Lag en kort oppsummering kun fra punktene du får. " +
 							"Fokuser kun på de aller viktigste tingene, og bruk stikkordsform for hovedpunktene. " +
-							"I tillegg skal du lage en 'Enkelt forklart'-del (simpleExplanation) med 2-3 korte avsnitt der du forklarer helheten av temaet på en visuell og lett måte for en 10. klassing. Bruk gjerne hverdagslige analogier/sammenligninger for å gjøre det lettere å forstå. " +
+							"I tillegg skal du lage en 'Enkelt forklart'-del (simpleExplanation) med 3-5 avsnitt der du forklarer helheten av temaet på en visuell og lett måte for en 10. klassing. Bruk gjerne hverdagslige analogier/sammenligninger for å gjøre det lettere å forstå. Den kan gjerne være litt lengre og mer utfyllende for å dekke alt det viktigste innholdet på en god og sammenhengende måte. " +
 							"Bruk KUN informasjonen fra punktene, men du kan bruke egne ord og analogier for å forklare denne informasjonen.",
 					},
 				],
@@ -770,7 +770,7 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 							"- intro: 1-2 korte setninger\n" +
 							"- bullets: 5-8 av de aller viktigste hovedpunktene i kort stikkordsform\n" +
 							"- takeaway: 1 kort huskeregel\n" +
-							"- simpleExplanation: 2-3 korte avsnitt med en lettforståelig forklaring av helheten, gjerne med gode analogier/sammenligninger.\n\n" +
+							"- simpleExplanation: 3-5 avsnitt med en lettforståelig forklaring av helheten. Gjør den gjerne utfyllende for å dekke de viktigste punktene godt, og bruk gjerne gode analogier/sammenligninger.\n\n" +
 							"Kildepunkter:\n- " +
 							dedupedBullets.join("\n- "),
 					},
