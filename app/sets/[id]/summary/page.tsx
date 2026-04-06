@@ -13,6 +13,7 @@ type SummaryState = {
 	intro?: string;
 	bullets?: string[];
 	takeaway?: string;
+	simpleExplanation?: string;
 	status?: string;
 	lastError?: string | null;
 	updatedAt?: string;
@@ -28,6 +29,7 @@ type StudySet = {
 	summaryIntro?: string;
 	summaryBullets?: string[];
 	summaryTakeaway?: string;
+	summarySimpleExplanation?: string;
 	summaryStatus?: string;
 	summaryLastError?: string | null;
 	summaryUpdatedAt?: string;
@@ -143,6 +145,7 @@ export default function SummaryPage({
 			intro: data.summaryIntro,
 			bullets: Array.isArray(data.summaryBullets) ? data.summaryBullets : [],
 			takeaway: data.summaryTakeaway,
+			simpleExplanation: data.summarySimpleExplanation,
 			status: data.summaryStatus,
 			lastError: data.summaryLastError,
 			updatedAt: data.summaryUpdatedAt,
@@ -351,11 +354,21 @@ export default function SummaryPage({
 							<div className="card-item stack-sm">
 								<span className="pill pill-blue">Husk dette</span>
 								<p className="text-lg font-semibold leading-8">{summary.takeaway}</p>
-								<p className="muted-text text-sm">
-									Hvis du vil, kan jeg neste steg koble denne oppsummeringen tettere mot konkrete kort og kildeutdrag.
-								</p>
 							</div>
 						</div>
+
+						{summary.simpleExplanation ? (
+							<div className="card-item stack-sm mt-2">
+								<h3 className="text-xl font-semibold flex items-center gap-2">
+									<span className="text-2xl">💡</span> Enkelt forklart
+								</h3>
+								<div className="space-y-4 text-base leading-7 text-slate-200">
+									{summary.simpleExplanation.split('\n\n').map((paragraph, idx) => (
+										<p key={idx}>{paragraph}</p>
+									))}
+								</div>
+							</div>
+						) : null}
 					</section>
 				) : null}
 			</div>

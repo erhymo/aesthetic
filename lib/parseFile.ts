@@ -44,6 +44,7 @@ export type DocumentSummary = {
 	intro: string;
 	bullets: string[];
 	takeaway: string;
+	simpleExplanation: string;
 };
 
 function getImageMimeType(rawFileName: string) {
@@ -753,7 +754,8 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 						text:
 							"Du er en nøktern lærer for 10. klasse. Lag en kort oppsummering kun fra punktene du får. " +
 							"Fokuser kun på de aller viktigste tingene, og bruk stikkordsform for hovedpunktene. " +
-							"Ikke bruk annen kunnskap, ikke fyll inn hull, og ikke skriv noe som ikke støttes av punktene.",
+							"I tillegg skal du lage en 'Enkelt forklart'-del (simpleExplanation) med 2-3 korte avsnitt der du forklarer helheten av temaet på en visuell og lett måte for en 10. klassing. Bruk gjerne hverdagslige analogier/sammenligninger for å gjøre det lettere å forstå. " +
+							"Bruk KUN informasjonen fra punktene, men du kan bruke egne ord og analogier for å forklare denne informasjonen.",
 					},
 				],
 			},
@@ -767,7 +769,8 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 							"- title: en kort overskrift\n" +
 							"- intro: 1-2 korte setninger\n" +
 							"- bullets: 5-8 av de aller viktigste hovedpunktene i kort stikkordsform\n" +
-							"- takeaway: 1 kort huskeregel\n\n" +
+							"- takeaway: 1 kort huskeregel\n" +
+							"- simpleExplanation: 2-3 korte avsnitt med en lettforståelig forklaring av helheten, gjerne med gode analogier/sammenligninger.\n\n" +
 							"Kildepunkter:\n- " +
 							dedupedBullets.join("\n- "),
 					},
@@ -789,8 +792,9 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 							items: { type: "string" },
 						},
 						takeaway: { type: "string" },
+						simpleExplanation: { type: "string" },
 					},
-					required: ["title", "intro", "bullets", "takeaway"],
+					required: ["title", "intro", "bullets", "takeaway", "simpleExplanation"],
 				},
 			},
 		},
@@ -807,6 +811,7 @@ export async function generateSummaryFromText(text: string): Promise<DocumentSum
 		intro: parsed.intro.trim(),
 		bullets: parsed.bullets.map((bullet) => bullet.trim()).filter(Boolean).slice(0, 10),
 		takeaway: parsed.takeaway.trim(),
+		simpleExplanation: parsed.simpleExplanation.trim(),
 	};
 }
 

@@ -27,6 +27,7 @@ function getStoredSummary(data: Record<string, unknown>): DocumentSummary | null
 		typeof data.summaryTitle !== "string" ||
 		typeof data.summaryIntro !== "string" ||
 		typeof data.summaryTakeaway !== "string" ||
+		typeof data.summarySimpleExplanation !== "string" ||
 		!Array.isArray(data.summaryBullets)
 	) {
 		return null;
@@ -45,6 +46,7 @@ function getStoredSummary(data: Record<string, unknown>): DocumentSummary | null
 		intro: data.summaryIntro,
 		bullets,
 		takeaway: data.summaryTakeaway,
+		simpleExplanation: data.summarySimpleExplanation,
 	};
 }
 
@@ -179,6 +181,7 @@ export async function POST(req: NextRequest) {
 			summaryIntro: summary.intro,
 			summaryBullets: summary.bullets,
 			summaryTakeaway: summary.takeaway,
+			summarySimpleExplanation: summary.simpleExplanation,
 			summarySourceLength: text.length,
 			summaryUpdatedAt: new Date().toISOString(),
 			summaryLastError: null,
